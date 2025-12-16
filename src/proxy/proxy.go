@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"log"
 	certificate "mixploy/src/certs"
@@ -24,7 +25,7 @@ func create_certificates(cfg *config.Config) {
 
 	host := cfg.Hostname
 
-	DNSnames := []string{}
+	DNSnames := []string{host, "admin." + host, "admin-api." + host}
 
 	for _, server := range cfg.LoadBalancer {
 		DNSnames = append(DNSnames, server.Subdomain+"."+host)
@@ -133,6 +134,11 @@ func Start() {
 			return
 		}
 
+		if subdomain == "admin-api" {
+			handleAdminAPI(w, r)
+			return
+		}
+
 		if _, ok := config.Proxies[subdomain]; !ok {
 			http.Error(w, "Dominio no configurado: "+host, http.StatusNotFound)
 			return
@@ -143,6 +149,14 @@ func Start() {
 			http.Error(w, "Error al obtener target: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		// Log the request
+		ip := r.RemoteAddr
+		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+			ip = forwarded
+		}
+		config.AddRequestLog(r.Method, r.URL.String(), ip, 200) // Assuming success for now
+
 		target.ServeHTTP(w, r)
 	})
 
@@ -165,4 +179,33 @@ func Start() {
 	}
 
 	log.Fatal(server.ListenAndServeTLS("", ""))
+}
+
+func handleAdminAPI(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == "OPTIONS" {
+		return
+	}
+
+	path := r.URL.Path
+
+	switch path {
+	case "/api/stats":
+		stats := config.GetStats()
+		json.NewEncoder(w).Encode(stats)
+	case "/api/requests":
+		requests := config.GetRequestLogs()
+		json.NewEncoder(w).Encode(requests)
+	case "/api/ips":
+		ips := config.GetIPStats()
+		json.NewEncoder(w).Encode(ips)
+	case "/api/config":
+		cfg, _ := config.ReadConfig("proxy.config.json")
+		json.NewEncoder(w).Encode(cfg)
+	default:
+		http.NotFound(w, r)
+	}
 }

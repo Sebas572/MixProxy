@@ -2,7 +2,7 @@
     "hostname": "developer.space",
     "subdomain_admin_panel": "admin",
     "on_https": true,
-    "mode:developer": true,
+    "mode_developer": true,
     "load_balancer": [
         {
             "vps": [

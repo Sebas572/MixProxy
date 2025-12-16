@@ -2,9 +2,12 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"sync"
+	"time"
 )
 
 type Config struct {
@@ -29,6 +32,94 @@ type VPSEntry struct {
 
 var Proxies map[string][]*httputil.ReverseProxy = make(map[string][]*httputil.ReverseProxy)
 var URL_ADMIN_PANEL *url.URL = mustParseURL("http://localhost:5173")
+
+// Monitoring data structures
+type RequestLog struct {
+	ID        string    `json:"id"`
+	Method    string    `json:"method"`
+	URL       string    `json:"url"`
+	IP        string    `json:"ip"`
+	Timestamp time.Time `json:"timestamp"`
+	Status    int       `json:"status"`
+}
+
+type IPStat struct {
+	IP       string    `json:"ip"`
+	Count    int       `json:"count"`
+	LastSeen time.Time `json:"lastSeen"`
+}
+
+type Stats struct {
+	TotalRequests     int `json:"totalRequests"`
+	ActiveConnections int `json:"activeConnections"`
+	UniqueIPs         int `json:"uniqueIPs"`
+}
+
+var (
+	requestLogs []RequestLog
+	ipStats     map[string]*IPStat
+	stats       Stats
+	mu          sync.RWMutex
+)
+
+func init() {
+	ipStats = make(map[string]*IPStat)
+}
+
+func AddRequestLog(method, url, ip string, status int) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	log := RequestLog{
+		ID:        fmt.Sprintf("%d", time.Now().UnixNano()),
+		Method:    method,
+		URL:       url,
+		IP:        ip,
+		Timestamp: time.Now(),
+		Status:    status,
+	}
+
+	requestLogs = append(requestLogs, log)
+	if len(requestLogs) > 100 {
+		requestLogs = requestLogs[1:]
+	}
+
+	stats.TotalRequests++
+
+	if stat, exists := ipStats[ip]; exists {
+		stat.Count++
+		stat.LastSeen = time.Now()
+	} else {
+		ipStats[ip] = &IPStat{
+			IP:       ip,
+			Count:    1,
+			LastSeen: time.Now(),
+		}
+		stats.UniqueIPs = len(ipStats)
+	}
+}
+
+func GetRequestLogs() []RequestLog {
+	mu.RLock()
+	defer mu.RUnlock()
+	return append([]RequestLog{}, requestLogs...)
+}
+
+func GetIPStats() []IPStat {
+	mu.RLock()
+	defer mu.RUnlock()
+	var stats []IPStat = []IPStat{}
+	for _, stat := range ipStats {
+		stats = append(stats, *stat)
+	}
+	return stats
+}
+
+func GetStats() Stats {
+	mu.RLock()
+	defer mu.RUnlock()
+	return stats
+}
 
 func validate_percentage(cfg *Config) {
 	sum := 0.00
