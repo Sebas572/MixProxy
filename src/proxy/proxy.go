@@ -4,17 +4,33 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	certificate "mixploy/src/certs"
 	"mixploy/src/proxy/config"
 	"mixploy/src/proxy/tools"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
 )
 
 type LoadBalancer struct {
 	URL      url.URL
 	Capacity float64
+}
+
+func create_certificates(cfg *config.Config) {
+	os.RemoveAll("./certs")
+
+	host := cfg.Hostname
+
+	DNSnames := []string{}
+
+	for _, server := range cfg.LoadBalancer {
+		DNSnames = append(DNSnames, server.Subdomain+"."+host)
+	}
+
+	certificate.Create(DNSnames)
 }
 
 func Start() {
@@ -24,13 +40,18 @@ func Start() {
 
 	loadBalancer := map[string]*[]LoadBalancer{}
 
+	if cfg.ModeDeveloper {
+		fmt.Println("Configuring certificates in development mode")
+		create_certificates(cfg)
+	}
+
 	for _, e := range cfg.LoadBalancer {
 		vps := []LoadBalancer{}
 		subdomain := e.Subdomain
 
 		for _, v := range e.VPS {
 			vps = append(vps, LoadBalancer{
-				URL:      *mustParseURL(v.IP),
+				URL:      *tools.MustParseURL(v.IP),
 				Capacity: v.Capacity,
 			})
 		}
@@ -87,17 +108,30 @@ func Start() {
 
 		log.Printf("📨 Solicitud para: %s", host)
 
-		if host == "developer.space" {
+		if host == cfg.Hostname {
 			w.Header().Set("Content-Type", "text/html")
 			fmt.Fprintf(w, `<h1>Balanceador Go Funcionando!</h1>
 				<p>Dominio actual: %s</p>
 				<ul>
-					<li><a href="https://api.developer.space">API</a></li>
-					<li><a href="https://app.developer.space">App</a></li>
-				</ul>`, host)
+					<li><a href="https://api.%s">API</a></li>
+					<li><a href="https://app.%s">App</a></li>
+				</ul>`, host, cfg.Hostname, cfg.Hostname)
 		}
 
 		subdomain := strings.Split(host, ".")[0]
+
+		if subdomain == "admin" {
+			user, pass, ok := r.BasicAuth()
+			if !ok || user != "admin" || pass != "password" {
+				w.Header().Set("WWW-Authenticate", `Basic realm="Admin"`)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+			// Proxy to localhost:5173
+			proxy := httputil.NewSingleHostReverseProxy(config.URL_ADMIN_PANEL)
+			proxy.ServeHTTP(w, r)
+			return
+		}
 
 		if _, ok := config.Proxies[subdomain]; !ok {
 			http.Error(w, "Dominio no configurado: "+host, http.StatusNotFound)
@@ -131,12 +165,4 @@ func Start() {
 	}
 
 	log.Fatal(server.ListenAndServeTLS("", ""))
-}
-
-func mustParseURL(raw string) *url.URL {
-	u, err := url.Parse(raw)
-	if err != nil {
-		panic(err)
-	}
-	return u
 }

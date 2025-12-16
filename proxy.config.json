@@ -1,6 +1,8 @@
 {
     "hostname": "developer.space",
+    "subdomain_admin_panel": "admin",
     "on_https": true,
+    "mode:developer": true,
     "load_balancer": [
         {
             "vps": [
@@ -16,7 +18,7 @@
                 }
             ],
             "type": "http",
-            "subdomain": "api",
+            "subdomain": "test",
             "active": true
         }
     ]

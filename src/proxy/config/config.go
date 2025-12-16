@@ -3,13 +3,15 @@ package config
 import (
 	"encoding/json"
 	"net/http/httputil"
+	"net/url"
 	"os"
 )
 
 type Config struct {
-	Hostname     string              `json:"hostname"`
-	OnHTTPS      bool                `json:"on_https"`
-	LoadBalancer []LoadBalancerEntry `json:"load_balancer"`
+	Hostname      string              `json:"hostname"`
+	OnHTTPS       bool                `json:"on_https"`
+	ModeDeveloper bool                `json:"mode_developer"`
+	LoadBalancer  []LoadBalancerEntry `json:"load_balancer"`
 }
 
 type LoadBalancerEntry struct {
@@ -26,6 +28,7 @@ type VPSEntry struct {
 }
 
 var Proxies map[string][]*httputil.ReverseProxy = make(map[string][]*httputil.ReverseProxy)
+var URL_ADMIN_PANEL *url.URL = mustParseURL("http://localhost:5173")
 
 func validate_percentage(cfg *Config) {
 	sum := 0.00
@@ -61,4 +64,12 @@ func ReadConfig(filePath string) (*Config, error) {
 	validate_percentage(&cfg)
 
 	return &cfg, nil
+}
+
+func mustParseURL(raw string) *url.URL {
+	u, err := url.Parse(raw)
+	if err != nil {
+		panic(err)
+	}
+	return u
 }
