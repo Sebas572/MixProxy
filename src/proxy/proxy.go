@@ -21,11 +21,13 @@ type LoadBalancer struct {
 }
 
 func create_certificates(cfg *config.Config) {
-	os.RemoveAll("./certs")
+	if _, err := os.Stat("./certs/wildcard.developer.space.crt"); err == nil {
+		return
+	}
 
 	host := cfg.Hostname
 
-	DNSnames := []string{host, "admin." + host, "admin-api." + host}
+	DNSnames := []string{host, "admin." + host, "admin-api." + host, "localhost", "127.0.0.1", "*.localhost"}
 
 	for _, server := range cfg.LoadBalancer {
 		DNSnames = append(DNSnames, server.Subdomain+"."+host)

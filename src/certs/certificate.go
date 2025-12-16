@@ -3,46 +3,36 @@
 package certificate
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
 	"fmt"
-	"math/big"
 	"os"
+	"os/exec"
 	"strings"
-	"time"
 )
 
 func Create(DNSnames []string) {
 	os.MkdirAll("certs", 0755)
 
-	privKey, _ := rsa.GenerateKey(rand.Reader, 2048)
-
-	template := x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{
-			Organization: []string{"Dev Local"},
-			CommonName:   "*.developer.space",
-		},
-		DNSNames:    DNSnames, //[]string{"developer.space", "test.developer.space", "app.developer.space"},
-		NotBefore:   time.Now(),
-		NotAfter:    time.Now().Add(365 * 24 * time.Hour),
-		KeyUsage:    x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	// Install mkcert CA if not already installed
+	installCmd := exec.Command("mkcert", "-install")
+	installErr := installCmd.Run()
+	if installErr != nil {
+		fmt.Printf("Error installing mkcert CA: %v\n", installErr)
+		fmt.Println("Please install mkcert: https://github.com/FiloSottile/mkcert")
+		return
 	}
 
-	derBytes, _ := x509.CreateCertificate(rand.Reader, &template, &template, &privKey.PublicKey, privKey)
+	// Use mkcert to generate trusted certificates
+	args := []string{"-cert-file", "certs/wildcard.developer.space.crt", "-key-file", "certs/wildcard.developer.space.key"}
+	args = append(args, DNSnames...)
 
-	certOut, _ := os.Create("certs/wildcard.developer.space.crt")
-	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-	certOut.Close()
+	cmd := exec.Command("mkcert", args...)
+	err := cmd.Run()
+	if err != nil {
+		fmt.Printf("Error running mkcert: %v\n", err)
+		fmt.Println("Please install mkcert: https://github.com/FiloSottile/mkcert")
+		return
+	}
 
-	keyOut, _ := os.Create("certs/wildcard.developer.space.key")
-	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privKey)})
-	keyOut.Close()
-
-	fmt.Println("✅ Generated wildcard certificate")
-	fmt.Println(strings.Join(DNSnames, "\n✅"))
+	fmt.Println("✅ Generated trusted certificates with mkcert")
+	fmt.Println("✅ " + strings.Join(DNSnames, "\n✅ "))
 }
