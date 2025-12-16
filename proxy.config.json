@@ -1,0 +1,23 @@
+{
+    "hostname": "developer.space",
+    "on_https": true,
+    "load_balancer": [
+        {
+            "vps": [
+                {
+                    "ip": "http://localhost:3001",
+                    "capacity": 0.5,
+                    "active": true
+                },
+                {
+                    "ip": "http://localhost:3002",
+                    "capacity": 0.5,
+                    "active": true
+                }
+            ],
+            "type": "http",
+            "subdomain": "api",
+            "active": true
+        }
+    ]
+}

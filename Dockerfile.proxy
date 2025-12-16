@@ -1,0 +1,10 @@
+FROM golang:1.25.5
+
+WORKDIR /app
+
+COPY ./src/proxy .
+COPY ./certs .
+
+RUN go build proxy.go
+
+CMD ["./proxy"]
