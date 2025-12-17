@@ -17,6 +17,7 @@ const columns = [
   },
   { key: "url", header: "URL", className: "text-primary" },
   { key: "ip", header: "IP" },
+  { key: "subdomain", header: "subdomain" },
   {
     key: "status",
     header: "Status",

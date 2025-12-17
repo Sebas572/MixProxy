@@ -1,10 +1,10 @@
 package proxy
 
 import (
-	"crypto/tls"
-	"encoding/json"
+	"context"
 	"fmt"
 	"log"
+	api "mixploy/src/api/admin"
 	certificate "mixploy/src/certs"
 	"mixploy/src/proxy/config"
 	"mixploy/src/proxy/tools"
@@ -12,7 +12,8 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"strings"
+	"sync"
+	"time"
 )
 
 type LoadBalancer struct {
@@ -20,7 +21,29 @@ type LoadBalancer struct {
 	Capacity float64
 }
 
-func create_certificates(cfg *config.Config) {
+func Stop() {
+	if err := config.SERVERS["HTTP"].Shutdown(context.TODO()); err != nil {
+		log.Println("Error stopping HTTP:", err)
+	}
+	if err := config.SERVERS["HTTPS"].Shutdown(context.TODO()); err != nil {
+		log.Println("Error stopping HTTPS:", err)
+	}
+}
+
+func Control(action string) {
+	switch action {
+	case "start":
+		Start()
+	case "stop":
+		Stop()
+	case "reload":
+		Stop()
+		time.Sleep(10 * time.Second)
+		Start()
+	}
+}
+
+func createCertificates(cfg *config.Config) {
 	if _, err := os.Stat("./certs/wildcard.developer.space.crt"); err == nil {
 		return
 	}
@@ -36,16 +59,63 @@ func create_certificates(cfg *config.Config) {
 	certificate.Create(DNSnames)
 }
 
-func Start() {
-	// Configurar backends
+func startHttpAndHttpsServer(wg *sync.WaitGroup, cfg *config.Config) {
+	handler := getHandleFunc(cfg)
+	tlsConfig := getTlsConfig()
 
+	config.SERVERS["HTTPS"].Handler = handler
+	config.SERVERS["HTTPS"].TLSConfig = tlsConfig
+
+	// Create mux for HTTP redirection
+	httpMux := http.NewServeMux()
+	httpMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		target := "https://" + r.Host + r.URL.Path
+		http.Redirect(w, r, target, http.StatusMovedPermanently)
+	})
+	config.SERVERS["HTTP"].Handler = httpMux
+
+	go func() {
+		defer wg.Done()
+
+		log.Println("🌐 HTTP redirigiendo en :80")
+
+		// always returns error. ErrServerClosed on graceful close
+		if err := config.SERVERS["HTTP"].ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatalf("ListenAndServe(): %v", err)
+			os.Exit(1)
+		}
+
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		log.Println("🚀 Balanceador iniciando en HTTPS :443")
+		if err := config.SERVERS["HTTPS"].ListenAndServeTLS("", ""); err != http.ErrServerClosed {
+			log.Fatalf("ListenAndServeTLS(): %v", err)
+		}
+	}()
+}
+
+func Start() {
+	api.SetControlFunc(Control)
+
+	// Reset global state for reload
+	config.SERVERS = map[string]*http.Server{
+		"HTTP":  &http.Server{Addr: ":80"},
+		"HTTPS": &http.Server{Addr: ":443"},
+	}
+	config.Proxies = make(map[string][]*httputil.ReverseProxy)
+	tools.ServerSelected = make(map[string]*tools.ServerEntry)
+
+	// Configurar backends
 	cfg, _ := config.ReadConfig("proxy.config.json")
 
 	loadBalancer := map[string]*[]LoadBalancer{}
 
 	if cfg.ModeDeveloper {
 		fmt.Println("Configuring certificates in development mode")
-		create_certificates(cfg)
+		createCertificates(cfg)
 	}
 
 	for _, e := range cfg.LoadBalancer {
@@ -93,139 +163,11 @@ func Start() {
 		}
 	}
 
-	// Cargar certificado wildcard (para *.developer.space y developer.space)
-	cert, err := tls.LoadX509KeyPair("certs/wildcard.developer.space.crt", "certs/wildcard.developer.space.key")
-	if err != nil {
-		log.Fatal("Error cargando certificado: ", err)
-	}
-
-	// Configuración TLS simple - usamos el mismo certificado para todo
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-	}
-
-	// Manejador HTTP principal
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Extraer dominio sin puerto
-		host := strings.Split(r.Host, ":")[0]
-
-		log.Printf("📨 Solicitud para: %s", host)
-
-		if host == cfg.Hostname {
-			w.Header().Set("Content-Type", "text/html")
-			fmt.Fprintf(w, `<h1>Balanceador Go Funcionando!</h1>
-				<p>Dominio actual: %s</p>
-				<ul>
-					<li><a href="https://api.%s">API</a></li>
-					<li><a href="https://app.%s">App</a></li>
-				</ul>`, host, cfg.Hostname, cfg.Hostname)
-		}
-
-		subdomain := strings.Split(host, ".")[0]
-
-		if subdomain == "admin" {
-			user, pass, ok := r.BasicAuth()
-			if !ok || user != "admin" || pass != "password" {
-				w.Header().Set("WWW-Authenticate", `Basic realm="Admin"`)
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-			// Proxy to localhost:5173
-			proxy := httputil.NewSingleHostReverseProxy(config.URL_ADMIN_PANEL)
-			proxy.ServeHTTP(w, r)
-			return
-		}
-
-		if subdomain == "admin-api" {
-			handleAdminAPI(w, r)
-			return
-		}
-
-		if _, ok := config.Proxies[subdomain]; !ok {
-			http.Error(w, "Dominio no configurado: "+host, http.StatusNotFound)
-			return
-		}
-
-		target, err := tools.GetTargetIPForSubdomain(subdomain)
-		if err != nil {
-			http.Error(w, "Error al obtener target: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Log the request
-		ip := r.RemoteAddr
-		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-			ip = forwarded
-		}
-		config.AddRequestLog(r.Method, r.URL.String(), ip, 200) // Assuming success for now
-
-		target.ServeHTTP(w, r)
-	})
-
 	// Redirigir HTTP a HTTPS
-	go func() {
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			target := "https://" + r.Host + r.URL.Path
-			http.Redirect(w, r, target, http.StatusMovedPermanently)
-		})
-		log.Println("🌐 HTTP redirigiendo en :80")
-		log.Fatal(http.ListenAndServe(":80", nil))
-	}()
+	httpServerExitDone := &sync.WaitGroup{}
+	httpServerExitDone.Add(2)
 
-	// Servidor HTTPS
-	log.Println("🚀 Balanceador iniciando en HTTPS :443")
-	server := &http.Server{
-		Addr:      ":443",
-		Handler:   handler,
-		TLSConfig: tlsConfig,
-	}
+	startHttpAndHttpsServer(httpServerExitDone, cfg)
 
-	log.Fatal(server.ListenAndServeTLS("", ""))
-}
-
-func handleAdminAPI(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-	if r.Method == "OPTIONS" {
-		return
-	}
-
-	path := r.URL.Path
-
-	switch path {
-	case "/api/stats":
-		stats := config.GetStats()
-		json.NewEncoder(w).Encode(stats)
-	case "/api/requests":
-		requests := config.GetRequestLogs()
-		json.NewEncoder(w).Encode(requests)
-	case "/api/ips":
-		ips := config.GetIPStats()
-		json.NewEncoder(w).Encode(ips)
-	case "/api/config":
-		if r.Method == "GET" {
-			cfg, _ := config.ReadConfig("proxy.config.json")
-			json.NewEncoder(w).Encode(cfg)
-		} else if r.Method == "PUT" {
-			var newCfg config.Config
-			if err := json.NewDecoder(r.Body).Decode(&newCfg); err != nil {
-				http.Error(w, "Invalid JSON", http.StatusBadRequest)
-				return
-			}
-			// Validate the config
-			if err := config.ValidateConfig(&newCfg); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			// Write to file
-			data, _ := json.MarshalIndent(newCfg, "", "  ")
-			os.WriteFile("proxy.config.json", data, 0644)
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
-		}
-	default:
-		http.NotFound(w, r)
-	}
+	httpServerExitDone.Wait()
 }

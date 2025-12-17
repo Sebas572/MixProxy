@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
@@ -32,6 +33,10 @@ type VPSEntry struct {
 	Active   bool    `json:"active"`
 }
 
+var SERVERS map[string]*http.Server = map[string]*http.Server{
+	"HTTP":  &http.Server{Addr: ":80"},
+	"HTTPS": &http.Server{Addr: ":443"},
+}
 var Proxies map[string][]*httputil.ReverseProxy = make(map[string][]*httputil.ReverseProxy)
 var URL_ADMIN_PANEL *url.URL = mustParseURL("http://localhost:5173")
 
@@ -41,6 +46,7 @@ type RequestLog struct {
 	Method    string    `json:"method"`
 	URL       string    `json:"url"`
 	IP        string    `json:"ip"`
+	Subdomain string    `json:"subdomain"`
 	Timestamp time.Time `json:"timestamp"`
 	Status    int       `json:"status"`
 }
@@ -68,7 +74,7 @@ func init() {
 	ipStats = make(map[string]*IPStat)
 }
 
-func AddRequestLog(method, url, ip string, status int) {
+func AddRequestLog(method, url, ip, subdomain string, status int) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -77,6 +83,7 @@ func AddRequestLog(method, url, ip string, status int) {
 		Method:    method,
 		URL:       url,
 		IP:        ip,
+		Subdomain: subdomain,
 		Timestamp: time.Now(),
 		Status:    status,
 	}
