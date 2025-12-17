@@ -6,15 +6,17 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
 
 type Config struct {
-	Hostname      string              `json:"hostname"`
-	OnHTTPS       bool                `json:"on_https"`
-	ModeDeveloper bool                `json:"mode_developer"`
-	LoadBalancer  []LoadBalancerEntry `json:"load_balancer"`
+	Hostname            string              `json:"hostname"`
+	SubdomainAdminPanel string              `json:"subdomain_admin_panel"`
+	OnHTTPS             bool                `json:"on_https"`
+	ModeDeveloper       bool                `json:"mode_developer"`
+	LoadBalancer        []LoadBalancerEntry `json:"load_balancer"`
 }
 
 type LoadBalancerEntry struct {
@@ -91,7 +93,7 @@ func AddRequestLog(method, url, ip string, status int) {
 		stat.LastSeen = time.Now()
 	} else {
 		ipStats[ip] = &IPStat{
-			IP:       ip,
+			IP:       strings.Split(ip, ":")[0],
 			Count:    1,
 			LastSeen: time.Now(),
 		}
@@ -121,24 +123,24 @@ func GetStats() Stats {
 	return stats
 }
 
-func validate_percentage(cfg *Config) {
-	sum := 0.00
-
+func ValidateConfig(cfg *Config) error {
 	for _, e := range cfg.LoadBalancer {
+		sum := 0.0
 		for _, v := range e.VPS {
 			if !v.Active {
 				continue
 			}
 
 			if v.Capacity > 1 || v.Capacity < 0 {
-				panic("capacity must be between 0 and 1")
+				return fmt.Errorf("capacity must be between 0 and 1")
 			}
 			sum += v.Capacity
 		}
 		if sum != 1 {
-			panic("sum of capacities must be 1")
+			return fmt.Errorf("sum of capacities must be 1")
 		}
 	}
+	return nil
 }
 
 func ReadConfig(filePath string) (*Config, error) {
@@ -151,8 +153,6 @@ func ReadConfig(filePath string) (*Config, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}
-
-	validate_percentage(&cfg)
 
 	return &cfg, nil
 }

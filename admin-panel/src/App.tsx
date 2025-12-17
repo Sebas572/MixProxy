@@ -1,34 +1,35 @@
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import Dashboard from './pages/Dashboard';
-import Requests from './pages/Requests';
-import IPs from './pages/IPs';
-import Config from './pages/Config';
-import './App.css';
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Layout } from "@/components/layout/Layout";
+import Index from "./pages/Index";
+import Requests from "./pages/Requests";
+import IPs from "./pages/IPs";
+import Configuration from "./pages/Configuration";
+import NotFound from "./pages/NotFound";
 
-function App() {
-  return (
-    <Router>
-      <div className="app">
-        <nav className="navbar">
-          <h1>Proxy Monitor</h1>
-          <ul>
-            <li><Link to="/">Dashboard</Link></li>
-            <li><Link to="/requests">Requests</Link></li>
-            <li><Link to="/ips">IPs</Link></li>
-            <li><Link to="/config">Configuration</Link></li>
-          </ul>
-        </nav>
-        <main>
+const queryClient = new QueryClient();
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Layout>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<Index />} />
             <Route path="/requests" element={<Requests />} />
             <Route path="/ips" element={<IPs />} />
-            <Route path="/config" element={<Config />} />
+            <Route path="/configuration" element={<Configuration />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
-        </main>
-      </div>
-    </Router>
-  );
-}
+        </Layout>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 
 export default App;

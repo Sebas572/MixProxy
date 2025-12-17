@@ -185,7 +185,7 @@ func Start() {
 
 func handleAdminAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
 	if r.Method == "OPTIONS" {
@@ -205,8 +205,26 @@ func handleAdminAPI(w http.ResponseWriter, r *http.Request) {
 		ips := config.GetIPStats()
 		json.NewEncoder(w).Encode(ips)
 	case "/api/config":
-		cfg, _ := config.ReadConfig("proxy.config.json")
-		json.NewEncoder(w).Encode(cfg)
+		if r.Method == "GET" {
+			cfg, _ := config.ReadConfig("proxy.config.json")
+			json.NewEncoder(w).Encode(cfg)
+		} else if r.Method == "PUT" {
+			var newCfg config.Config
+			if err := json.NewDecoder(r.Body).Decode(&newCfg); err != nil {
+				http.Error(w, "Invalid JSON", http.StatusBadRequest)
+				return
+			}
+			// Validate the config
+			if err := config.ValidateConfig(&newCfg); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			// Write to file
+			data, _ := json.MarshalIndent(newCfg, "", "  ")
+			os.WriteFile("proxy.config.json", data, 0644)
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
+		}
 	default:
 		http.NotFound(w, r)
 	}

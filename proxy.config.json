@@ -1,25 +1,37 @@
 {
-    "hostname": "developer.space",
-    "subdomain_admin_panel": "admin",
-    "on_https": true,
-    "mode_developer": true,
-    "load_balancer": [
+  "hostname": "developer.space",
+  "subdomain_admin_panel": "admin",
+  "on_https": true,
+  "mode_developer": true,
+  "load_balancer": [
+    {
+      "vps": [
         {
-            "vps": [
-                {
-                    "ip": "http://localhost:3001",
-                    "capacity": 0.5,
-                    "active": true
-                },
-                {
-                    "ip": "http://localhost:3002",
-                    "capacity": 0.5,
-                    "active": true
-                }
-            ],
-            "type": "http",
-            "subdomain": "test",
-            "active": true
+          "ip": "http://localhost:3001",
+          "capacity": 0.5,
+          "active": true
+        },
+        {
+          "ip": "http://localhost:3002",
+          "capacity": 0.5,
+          "active": true
         }
-    ]
+      ],
+      "type": "http",
+      "subdomain": "api",
+      "active": true
+    },
+    {
+      "vps": [
+        {
+          "ip": "http://localhost:3001",
+          "capacity": 1,
+          "active": true
+        }
+      ],
+      "type": "https",
+      "subdomain": "app",
+      "active": true
+    }
+  ]
 }
