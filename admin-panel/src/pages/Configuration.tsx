@@ -7,9 +7,11 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, Config } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Configuration() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const { data: config, isLoading } = useQuery({
     queryKey: ['config'],
     queryFn: api.getConfig,
@@ -29,6 +31,34 @@ export default function Configuration() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['config'] });
       setValidationErrors([]);
+      toast({
+        title: "Success",
+        description: "Configuration saved successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to save configuration.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const reloadMutation = useMutation({
+    mutationFn: api.reload,
+    onSuccess: () => {
+      toast({
+        title: "Reset",
+        description: "Reset initiated, system is reloading.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to initiate reset.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -65,6 +95,7 @@ export default function Configuration() {
       }
 
       // Validate VPS entries
+      let totalCapacitySum = 0;
       let activeCapacitySum = 0;
       let hasActiveVPS = false;
 
@@ -85,11 +116,18 @@ export default function Configuration() {
           errors.push(`Load balancer ${lbIndex + 1}, VPS ${vpsIndex + 1}: Capacity must be between 0 and 1`);
         }
 
+        totalCapacitySum += vps.capacity;
+
         if (vps.active) {
           hasActiveVPS = true;
           activeCapacitySum += vps.capacity;
         }
       });
+
+      // Check total capacity sum
+      if (Math.abs(totalCapacitySum - 1) > 0.001) {
+        errors.push(`Load balancer ${lbIndex + 1}: Sum of all VPS capacities must be 1 (currently ${totalCapacitySum.toFixed(3)})`);
+      }
 
       // Check capacity sum for active VPS
       if (hasActiveVPS && Math.abs(activeCapacitySum - 1) > 0.001) {
@@ -111,6 +149,11 @@ export default function Configuration() {
     const errors = validateConfig(formData);
     if (errors.length > 0) {
       setValidationErrors(errors);
+      toast({
+        title: "Validation Error",
+        description: errors.join("; "),
+        variant: "destructive",
+      });
       return;
     }
 
@@ -197,9 +240,9 @@ export default function Configuration() {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => { setFormData(config); reloadMutation.mutate(); }} disabled={reloadMutation.isPending}>
             <RefreshCw className="h-4 w-4" />
-            Reset
+            {reloadMutation.isPending ? 'Resetting...' : 'Reset'}
           </Button>
           <Button className="gap-2" onClick={handleSave} disabled={updateConfigMutation.isPending}>
             <Save className="h-4 w-4" />
@@ -216,6 +259,7 @@ export default function Configuration() {
           <div className="space-y-2">
             <Label htmlFor="hostname">Hostname</Label>
             <Input
+              required
               id="hostname"
               value={formData.hostname}
               onChange={(e) => updateField('hostname', e.target.value)}
@@ -225,6 +269,7 @@ export default function Configuration() {
           <div className="space-y-2">
             <Label htmlFor="subdomain_admin_panel">Admin Panel Subdomain</Label>
             <Input
+              required
               id="subdomain_admin_panel"
               value={formData.subdomain_admin_panel}
               onChange={(e) => updateField('subdomain_admin_panel', e.target.value)}
@@ -267,6 +312,7 @@ export default function Configuration() {
                 <div className="space-y-2">
                   <Label>Subdomain</Label>
                   <Input
+                    required
                     value={lb.subdomain}
                     onChange={(e) => updateLoadBalancer(i, 'subdomain', e.target.value)}
                     className="bg-secondary border-border font-mono"
@@ -275,6 +321,7 @@ export default function Configuration() {
                 <div className="space-y-2">
                   <Label>Type</Label>
                   <Input
+                    required
                     value={lb.type}
                     onChange={(e) => updateLoadBalancer(i, 'type', e.target.value)}
                     className="bg-secondary border-border font-mono"
@@ -301,6 +348,7 @@ export default function Configuration() {
                   {lb.vps.map((vps, j) => (
                     <div key={j} className="flex gap-2 items-center">
                       <Input
+                        required
                         placeholder="IP Address"
                         value={vps.ip}
                         onChange={(e) => updateVPS(i, j, 'ip', e.target.value)}

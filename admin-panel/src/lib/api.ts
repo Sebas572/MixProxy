@@ -81,4 +81,9 @@ export const api = {
     });
     if (!res.ok) throw new Error('Failed to update config');
   },
+
+  async reload(): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/reload`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to reload');
+  },
 };
