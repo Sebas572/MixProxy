@@ -1,11 +1,9 @@
 package proxy
 
 import (
-	"fmt"
-	"log"
-	api "mixploy/src/api/admin"
-	"mixploy/src/proxy/config"
-	"mixploy/src/proxy/tools"
+	api "mixproxy/src/api/admin"
+	"mixproxy/src/proxy/config"
+	"mixproxy/src/proxy/tools"
 	"net/http"
 	"net/http/httputil"
 	"strings"
@@ -23,18 +21,18 @@ func getHandleFunc(cfg *config.Config) http.HandlerFunc {
 		}
 		subdomain := strings.Split(host, ".")[0]
 
-		log.Printf("📨 Solicitud para: %s", host)
+		tools.PrintLog(r.Method, r.RequestURI, ip, host)
 
-		if host == cfg.Hostname {
-			config.AddRequestLog(r.Method, r.URL.String(), ip, subdomain, 200)
-			w.Header().Set("Content-Type", "text/html")
-			fmt.Fprintf(w, `<h1>Balanceador Go Funcionando!</h1>
-				<p>Dominio actual: %s</p>
-				<ul>
-					<li><a href="https://api.%s">API</a></li>
-					<li><a href="https://app.%s">App</a></li>
-				</ul>`, host, cfg.Hostname, cfg.Hostname)
-		}
+		// if host == cfg.Hostname {
+		// 	config.AddRequestLog(r.Method, r.URL.String(), ip, subdomain, 200)
+		// 	w.Header().Set("Content-Type", "text/html")
+		// 	fmt.Fprintf(w, `<h1>Balanceador Go Funcionando!</h1>
+		// 		<p>Dominio actual: %s</p>
+		// 		<ul>
+		// 			<li><a href="https://api.%s">API</a></li>
+		// 			<li><a href="https://app.%s">App</a></li>
+		// 		</ul>`, host, cfg.Hostname, cfg.Hostname)
+		// }
 
 		if subdomain == "admin" {
 			user, pass, ok := r.BasicAuth()

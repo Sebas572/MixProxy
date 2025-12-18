@@ -3,8 +3,8 @@ package core
 import (
 	"context"
 	"fmt"
-	"mixploy/src/proxy"
-	"mixploy/src/proxy/config"
+	"mixproxy/src/proxy"
+	"mixproxy/src/proxy/config"
 	"time"
 )
 

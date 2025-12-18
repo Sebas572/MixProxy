@@ -1,7 +1,7 @@
 package tools
 
 import (
-	"mixploy/src/proxy/config"
+	"mixproxy/src/proxy/config"
 	"net/http/httputil"
 )
 

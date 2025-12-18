@@ -2,7 +2,7 @@ package api
 
 import (
 	"encoding/json"
-	"mixploy/src/proxy/config"
+	"mixproxy/src/proxy/config"
 	"net/http"
 	"os"
 	"time"

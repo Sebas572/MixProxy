@@ -21,7 +21,7 @@ export function Sidebar() {
             <Shield className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-sm font-semibold text-foreground">Mixploy</h1>
+            <h1 className="text-sm font-semibold text-foreground">MixProxy</h1>
             <p className="text-xs text-muted-foreground">Admin Panel</p>
           </div>
         </div>

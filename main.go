@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
-	"mixploy/src/proxy"
+	"mixproxy/src/proxy"
 	"os"
 	"os/signal"
 	"syscall"
 )
 
 func main() {
-	fmt.Println("Init Mixploy")
+	fmt.Println("Init MixProxy")
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
