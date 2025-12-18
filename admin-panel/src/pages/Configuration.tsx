@@ -85,14 +85,11 @@ export default function Configuration() {
       subdomains.add(lb.subdomain);
 
       // Validate subdomain
-      if (!lb.subdomain.trim()) {
+      if (!lb.subdomain || !lb.subdomain.trim()) {
         errors.push(`Load balancer ${lbIndex + 1}: Subdomain is required`);
       }
 
-      // Validate type
-      if (!lb.type.trim()) {
-        errors.push(`Load balancer ${lbIndex + 1}: Type is required`);
-      }
+      // Type is set by switch, always valid
 
       // Validate VPS entries
       let totalCapacitySum = 0;
@@ -139,6 +136,56 @@ export default function Configuration() {
         errors.push(`Load balancer ${lbIndex + 1}: At least one VPS must be active`);
       }
     });
+
+    // Validate root load balancer
+    if (cfg.root_load_balancer) {
+      // Type is set by switch, always valid
+
+      // Validate VPS entries
+      let totalCapacitySum = 0;
+      let activeCapacitySum = 0;
+      let hasActiveVPS = false;
+
+      cfg.root_load_balancer.vps.forEach((vps, vpsIndex) => {
+        // Validate IP
+        if (!vps.ip.trim()) {
+          errors.push(`Root Load Balancer, VPS ${vpsIndex + 1}: IP address is required`);
+        } else {
+          try {
+            new URL(vps.ip);
+          } catch {
+            errors.push(`Root Load Balancer, VPS ${vpsIndex + 1}: Invalid IP/URL format`);
+          }
+        }
+
+        // Validate capacity
+        if (vps.capacity < 0 || vps.capacity > 1) {
+          errors.push(`Root Load Balancer, VPS ${vpsIndex + 1}: Capacity must be between 0 and 1`);
+        }
+
+        totalCapacitySum += vps.capacity;
+
+        if (vps.active) {
+          hasActiveVPS = true;
+          activeCapacitySum += vps.capacity;
+        }
+      });
+
+      // Check total capacity sum
+      if (Math.abs(totalCapacitySum - 1) > 0.001) {
+        errors.push(`Root Load Balancer: Sum of all VPS capacities must be 1 (currently ${totalCapacitySum.toFixed(3)})`);
+      }
+
+      // Check capacity sum for active VPS
+      if (hasActiveVPS && Math.abs(activeCapacitySum - 1) > 0.001) {
+        errors.push(`Root Load Balancer: Sum of active VPS capacities must be 1 (currently ${activeCapacitySum.toFixed(3)})`);
+      }
+
+      // Check if there are any active VPS
+      if (!hasActiveVPS) {
+        errors.push(`Root Load Balancer: At least one VPS must be active`);
+      }
+    }
 
     return errors;
   };
@@ -225,6 +272,56 @@ export default function Configuration() {
     });
   };
 
+  const updateRootLB = (field: string, value: any) => {
+    setFormData(prev => {
+      if (!prev || !prev.root_load_balancer) return prev;
+      return { ...prev, root_load_balancer: { ...prev.root_load_balancer, [field]: value } };
+    });
+  };
+
+  const updateRootVPS = (vpsIndex: number, field: string, value: any) => {
+    setFormData(prev => {
+      if (!prev || !prev.root_load_balancer) return prev;
+      const newVPS = [...prev.root_load_balancer.vps];
+      (newVPS[vpsIndex] as any)[field] = value;
+      return { ...prev, root_load_balancer: { ...prev.root_load_balancer, vps: newVPS } };
+    });
+  };
+
+  const addRootVPS = () => {
+    setFormData(prev => {
+      if (!prev) return null;
+      if (!prev.root_load_balancer) return prev;
+      const newVPS = (prev.root_load_balancer.vps === null ? [] : [...prev.root_load_balancer.vps]);
+      newVPS.push({ ip: "", capacity: 0.5, active: true });
+      return { ...prev, root_load_balancer: { ...prev.root_load_balancer, vps: newVPS } };
+    });
+  };
+
+  const removeRootVPS = (vpsIndex: number) => {
+    setFormData(prev => {
+      if (!prev || !prev.root_load_balancer) return prev;
+      const newVPS = [...prev.root_load_balancer.vps];
+      newVPS.splice(vpsIndex, 1);
+      return { ...prev, root_load_balancer: { ...prev.root_load_balancer, vps: newVPS } };
+    });
+  };
+
+  const addRootLoadBalancer = () => {
+    setFormData(prev => {
+      if (!prev) return null;
+      return { ...prev, root_load_balancer: { vps: [{ ip: "", capacity: 1, active: true }], type: "https", active: true } };
+    });
+  };
+
+  const removeRootLoadBalancer = () => {
+    setFormData(prev => {
+      if (!prev) return null;
+      const { root_load_balancer, ...rest } = prev;
+      return rest;
+    });
+  };
+
   if (isLoading || !formData) {
     return <div>Loading...</div>;
   }
@@ -295,6 +392,83 @@ export default function Configuration() {
 
       <Separator className="bg-border" />
 
+      {/* Root Domain Load Balancer */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-6">
+        <h2 className="text-lg font-semibold text-foreground">Root Domain Load Balancer</h2>
+
+        {formData.root_load_balancer ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium">Root Domain</h3>
+              <Button size="sm" variant="ghost" onClick={removeRootLoadBalancer}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="center-switch">
+                <Label>HTTPS Enabled</Label>
+                <Switch
+                  checked={formData.root_load_balancer.type === "https"}
+                  onCheckedChange={(checked) => updateRootLB('type', checked ? "https" : "http")}
+                />
+              </div>
+              <div className="center-switch">
+                <Label>Active</Label>
+                <Switch
+                  checked={formData.root_load_balancer.active}
+                  onCheckedChange={(checked) => updateRootLB('active', checked)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>VPS Servers</Label>
+                <Button size="sm" variant="outline" onClick={addRootVPS}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add VPS
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {formData.root_load_balancer.vps !== null && (formData.root_load_balancer.vps.map((vps, j) => (
+                  <div key={j} className="flex gap-2 items-center">
+                    <Input
+                      required
+                      placeholder="IP Address"
+                      value={vps.ip}
+                      onChange={(e) => updateRootVPS(j, 'ip', e.target.value)}
+                      className="bg-secondary border-border font-mono flex-1"
+                    />
+                    <Input
+                      type="number"
+                      step="0.1"
+                      placeholder="Capacity"
+                      value={vps.capacity}
+                      onChange={(e) => updateRootVPS(j, 'capacity', parseFloat(e.target.value))}
+                      className="bg-secondary border-border font-mono w-24"
+                    />
+                    <Switch
+                      checked={vps.active}
+                      onCheckedChange={(checked) => updateRootVPS(j, 'active', checked)}
+                    />
+                    <Button size="sm" variant="ghost" onClick={() => removeRootVPS(j)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <Button variant="outline" onClick={addRootLoadBalancer}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Root Domain Load Balancer
+          </Button>
+        )}
+      </div>
+
+      <Separator className="bg-border" />
+
       {/* Load Balancer */}
       <div className="rounded-xl border border-border bg-card p-6 space-y-6">
         <h2 className="text-lg font-semibold text-foreground">Load Balancer</h2>
@@ -318,16 +492,14 @@ export default function Configuration() {
                     className="bg-secondary border-border font-mono"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Type</Label>
-                  <Input
-                    required
-                    value={lb.type}
-                    onChange={(e) => updateLoadBalancer(i, 'type', e.target.value)}
-                    className="bg-secondary border-border font-mono"
+                <div className="center-switch h-24">
+                  <Label>HTTPS Enabled</Label>
+                  <Switch
+                    checked={lb.type === "https"}
+                    onCheckedChange={(checked) => updateLoadBalancer(i, 'type', checked ? "https" : "http")}
                   />
                 </div>
-                <div className="center-switch w-24">
+                <div className="center-switch h-24">
                   <Label>Active</Label>
                   <Switch
                     checked={lb.active}

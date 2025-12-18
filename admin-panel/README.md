@@ -1,6 +1,6 @@
 # Admin Panel
 
-This is the admin panel for the MixPloy reverse proxy.
+This is the admin panel for the MixProxy reverse proxy.
 
 ## Technologies Used
 

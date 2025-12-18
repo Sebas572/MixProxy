@@ -40,20 +40,29 @@ func Control(action string) {
 		Stop()
 		time.Sleep(10 * time.Second)
 		Start()
+	case "createCertificates":
+		os.RemoveAll("./certs")
+		createCertificates()
+	default:
+		fmt.Println("Invalid action")
 	}
 }
 
-func createCertificates(cfg *config.Config) {
+func createCertificates() {
+	cfg, _ := config.ReadConfig()
+
 	if _, err := os.Stat("./certs/wildcard.developer.space.crt"); err == nil {
 		return
 	}
 
 	host := cfg.Hostname
 
-	DNSnames := []string{host, "admin." + host, "admin-api." + host, "localhost", "127.0.0.1", "*.localhost"}
+	DNSnames := []string{host, cfg.SubdomainAdminPanel + "." + host, "admin-api." + host, "localhost", "127.0.0.1", "*.localhost"}
 
 	for _, server := range cfg.LoadBalancer {
-		DNSnames = append(DNSnames, server.Subdomain+"."+host)
+		if server.Subdomain != "" {
+			DNSnames = append(DNSnames, server.Subdomain+"."+host)
+		}
 	}
 
 	certificate.Create(DNSnames)
@@ -109,13 +118,18 @@ func Start() {
 	tools.ServerSelected = make(map[string]*tools.ServerEntry)
 
 	// Configurar backends
-	cfg, _ := config.ReadConfig("proxy.config.json")
+	cfg, _ := config.ReadConfig()
+
+	if err := config.ValidateConfig(cfg); err != nil {
+		fmt.Println("❌ Error de validación:", err)
+		os.Exit(0)
+	}
 
 	loadBalancer := map[string]*[]LoadBalancer{}
 
 	if cfg.ModeDeveloper {
 		fmt.Println("Configuring certificates in development mode")
-		createCertificates(cfg)
+		createCertificates()
 	}
 
 	for _, e := range cfg.LoadBalancer {
@@ -140,29 +154,52 @@ func Start() {
 		tools.SetupServerSelected(subdomain, probability)
 	}
 
-	for subdomain, targets := range loadBalancer {
-		for _, target := range *targets {
-			proxy := httputil.NewSingleHostReverseProxy(&target.URL)
+	if cfg.RootLoadBalancer != nil && config.AllValuesNonEmpty(cfg.RootLoadBalancer) {
+		vps := []LoadBalancer{}
+		subdomain := ""
 
-			// Guardar el director original
-			originalDirector := proxy.Director
-
-			// Sobrescribir el Director para manejar el encabezado Host
-			proxy.Director = func(req *http.Request) {
-				// 1. Primero, llamar al director original
-				originalDirector(req)
-
-				req.Host = target.URL.Host // target.Host -> ejemplo ("localhost:3001")
-
-				if req.Header.Get("Upgrade") == "websocket" {
-					log.Printf("🔄 Proxy: Iniciando conexión WebSocket a %s", target.URL.Host)
-				}
-			}
-
-			config.Proxies[subdomain] = append(config.Proxies[subdomain], proxy)
+		for _, v := range cfg.RootLoadBalancer.VPS {
+			vps = append(vps, LoadBalancer{
+				URL:      *tools.MustParseURL(v.IP),
+				Capacity: v.Capacity,
+			})
 		}
+
+		loadBalancer[subdomain] = &vps
+		probability := []tools.VpsProbability{}
+		for _, v := range cfg.RootLoadBalancer.VPS {
+			probability = append(probability, tools.VpsProbability{
+				Probability: v.Capacity,
+				IP:          v.IP,
+			})
+		}
+		tools.SetupServerSelected(subdomain, probability)
 	}
 
+	if len(loadBalancer) != 0 {
+		for subdomain, targets := range loadBalancer {
+			for _, target := range *targets {
+				proxy := httputil.NewSingleHostReverseProxy(&target.URL)
+
+				// Guardar el director original
+				originalDirector := proxy.Director
+
+				// Sobrescribir el Director para manejar el encabezado Host
+				proxy.Director = func(req *http.Request) {
+					// 1. Primero, llamar al director original
+					originalDirector(req)
+
+					req.Host = target.URL.Host // target.Host -> ejemplo ("localhost:3001")
+
+					if req.Header.Get("Upgrade") == "websocket" {
+						log.Printf("🔄 Proxy: Iniciando conexión WebSocket a %s", target.URL.Host)
+					}
+				}
+
+				config.Proxies[subdomain] = append(config.Proxies[subdomain], proxy)
+			}
+		}
+	}
 	// Redirigir HTTP a HTTPS
 	httpServerExitDone := &sync.WaitGroup{}
 	httpServerExitDone.Add(2)

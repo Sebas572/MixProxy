@@ -1,5 +1,5 @@
 const getHostname = () => {
-  return window.location.hostname.replace(/^admin\./, '');
+  return window.location.hostname.split(".").slice(1).join(".");
 };
 
 const API_BASE = `https://admin-api.${getHostname()}`;
@@ -34,7 +34,7 @@ export interface VPSEntry {
 export interface LoadBalancerEntry {
   vps: VPSEntry[];
   type: string;
-  subdomain: string;
+  subdomain?: string;
   active: boolean;
 }
 
@@ -44,6 +44,7 @@ export interface Config {
   on_https: boolean;
   mode_developer: boolean;
   load_balancer: LoadBalancerEntry[];
+  root_load_balancer?: LoadBalancerEntry;
 }
 
 export const api = {

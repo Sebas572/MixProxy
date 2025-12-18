@@ -19,22 +19,14 @@ func getHandleFunc(cfg *config.Config) http.HandlerFunc {
 		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
 			ip = forwarded
 		}
-		subdomain := strings.Split(host, ".")[0]
+		subdomain := ""
+		if host != cfg.Hostname {
+			subdomain = strings.Split(host, ".")[0]
+		}
 
 		tools.PrintLog(r.Method, r.RequestURI, ip, host)
 
-		// if host == cfg.Hostname {
-		// 	config.AddRequestLog(r.Method, r.URL.String(), ip, subdomain, 200)
-		// 	w.Header().Set("Content-Type", "text/html")
-		// 	fmt.Fprintf(w, `<h1>Balanceador Go Funcionando!</h1>
-		// 		<p>Dominio actual: %s</p>
-		// 		<ul>
-		// 			<li><a href="https://api.%s">API</a></li>
-		// 			<li><a href="https://app.%s">App</a></li>
-		// 		</ul>`, host, cfg.Hostname, cfg.Hostname)
-		// }
-
-		if subdomain == "admin" {
+		if subdomain == cfg.SubdomainAdminPanel {
 			user, pass, ok := r.BasicAuth()
 			if !ok || user != "admin" || pass != "password" {
 				w.Header().Set("WWW-Authenticate", `Basic realm="Admin"`)

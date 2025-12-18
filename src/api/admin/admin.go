@@ -61,7 +61,7 @@ func HandleAdminAPI(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(ips)
 	case "/api/config":
 		if r.Method == "GET" {
-			cfg, _ := config.ReadConfig("proxy.config.json")
+			cfg, _ := config.ReadConfig()
 			json.NewEncoder(w).Encode(cfg)
 		} else if r.Method == "PUT" {
 			var newCfg config.Config
@@ -76,7 +76,7 @@ func HandleAdminAPI(w http.ResponseWriter, r *http.Request) {
 			}
 			// Write to file
 			data, _ := json.MarshalIndent(newCfg, "", "  ")
-			os.WriteFile("proxy.config.json", data, 0644)
+			os.WriteFile(config.CONFIG_PATH, data, 0644)
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
 		}
