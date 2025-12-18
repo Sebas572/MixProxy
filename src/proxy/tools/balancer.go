@@ -40,7 +40,7 @@ func GetTargetIPForSubdomain(subdomain string) (*httputil.ReverseProxy, error) {
 		i = 0
 	}
 
-	target = config.Proxies[subdomain][i]
+	target = config.Proxies[subdomain][ServerSelected[subdomain].Turn[i]]
 	ServerSelected[subdomain].Petition++
 
 	return target, nil
