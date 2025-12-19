@@ -25,4 +25,5 @@ services:
 
 networks:
   mixproxy:
+    external: true
     driver: bridge
