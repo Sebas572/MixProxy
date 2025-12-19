@@ -42,7 +42,7 @@ var SERVERS map[string]*http.Server = map[string]*http.Server{
 	"HTTPS": &http.Server{Addr: ":443"},
 }
 var Proxies map[string][]*httputil.ReverseProxy = make(map[string][]*httputil.ReverseProxy)
-var URL_ADMIN_PANEL *url.URL = mustParseURL("http://localhost:5173")
+var URL_ADMIN_PANEL *url.URL = mustParseURL("http://admin:4173")
 var CONFIG_PATH string = filepath.Join(".", ".config", "proxy.config.json")
 
 // Monitoring data structures

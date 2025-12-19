@@ -25,6 +25,12 @@ func main() {
 			os.Exit(0)
 		}
 
+		if os.Args[1] == "--start-proxy" {
+			proxy.Control("start")
+
+			return
+		}
+
 		prompt := promptui.Select{
 			Label: "Select",
 			Items: []string{"Start proxy", "Verificate proxy.config.json", "Create certificates SSL (developer)"},

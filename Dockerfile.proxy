@@ -1,10 +1,23 @@
 FROM golang:1.25.5
 
-WORKDIR /app
+WORKDIR /mixproxy
 
-COPY ./src/proxy .
-COPY ./certs .
+RUN mkdir src
+RUN mkdir .config
+RUN mkdir certs
 
-RUN go build proxy.go
+COPY ./.config ./.config
+COPY ./certs ./certs
+COPY ./src ./src
+COPY main.go .
+COPY go.mod .
+COPY go.sum .
 
-CMD ["./proxy"]
+RUN go mod download
+RUN ls
+RUN go build
+
+EXPOSE 80
+EXPOSE 443
+
+CMD ["./mixproxy", "--start-proxy"]

@@ -1,0 +1,29 @@
+services:
+  proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.proxy
+    volumes:
+      - ./certs:/mixproxy/certs
+      - ./.config:/mixproxy/.config
+    ports:
+      - 443:443
+      - 80:80
+    restart: unless-stopped
+    networks:
+      - mixproxy
+
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin_panel
+    volumes:
+      - ./certs:/mixproxy/certs
+      - ./.config:/mixproxy/.config
+    restart: unless-stopped
+    networks:
+      - mixproxy
+
+networks:
+  mixproxy:
+    driver: bridge
