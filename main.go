@@ -25,10 +25,12 @@ func main() {
 			os.Exit(0)
 		}
 
-		if os.Args[1] == "--start-proxy" {
-			proxy.Control("start")
+		if len(os.Args) >= 2 {
+			if os.Args[1] == "--start-proxy" {
+				proxy.Control("start")
 
-			return
+				return
+			}
 		}
 
 		prompt := promptui.Select{
