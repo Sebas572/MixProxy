@@ -18,8 +18,7 @@ services:
       context: .
       dockerfile: Dockerfile.admin_panel
     volumes:
-      - ./certs:/mixproxy/certs
-      - ./.config:/mixproxy/.config
+      - ./.config:/.config
     restart: unless-stopped
     networks:
       - mixproxy

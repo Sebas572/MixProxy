@@ -6,8 +6,6 @@ RUN mkdir src
 RUN mkdir .config
 RUN mkdir certs
 
-COPY ./.config ./.config
-COPY ./certs ./certs
 COPY ./src ./src
 COPY main.go .
 COPY go.mod .
