@@ -8,6 +8,38 @@
 
 MixProxy is a high-performance reverse proxy server written in Go, designed to efficiently route traffic to services with load balancing capabilities. It includes an administration panel for easy configuration and monitoring.
 
+## Installation
+
+To start using MixProxy, follow these simple steps:
+
+1. **Download and install dependencies:**
+   - On Linux/macOS:
+    
+    ```bash
+     curl -o- https://raw.githubusercontent.com/Sebas572/MixProxy/refs/heads/main/setup.bash | bash
+     ```
+   - On Windows:
+    
+    ```ps1
+     powershell -Command “& {Invoke-WebRequest https://raw.githubusercontent.com/Sebas572/MixProxy/refs/heads/main/setup.ps1 -OutFile setup.ps1; .\setup.ps1}”
+     ```
+
+2. **Configure certificates**:
+   * If you are in development mode, this will be configured automatically and you can skip this step.
+   * If you have certificates, you must place them in the certs folder. The following two files are expected: wildcard.<domain>.crt and wildcard.<domain>.key
+
+3. **Start the services**:
+   After installation, run the following command to start the proxy and the admin panel:
+    ```bash
+   docker compose up
+   ```
+
+3. **Access the services**:
+   - The proxy will be available on the configured ports.
+   - The admin panel can be accessed through your browser (check the configuration for the exact URL).
+   - Default admin credentials: Username: `admin`, Password: `password`.
+
+
 ## Features
 
 - **Load balancing**: intelligent distribution of traffic across multiple servers based on capacity weights
