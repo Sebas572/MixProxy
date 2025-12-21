@@ -1,86 +1,142 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"mixproxy/src/proxy/config"
-	"net/http"
 	"os"
+	"strings"
 	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 var controlFunc func(string)
+var cfg *config.Config
+
+func init() {
+	cfg, _ = config.ReadConfig()
+}
 
 func SetControlFunc(f func(string)) {
 	controlFunc = f
 }
 
-func HandleAdminAPI(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+func adminApiMiddleware(c *fiber.Ctx) error {
+	hostAndPort := string(c.BaseURL())
+	host := strings.Split(hostAndPort, "//")[1]
+	subdomain := ""
 
-	if r.Method == "OPTIONS" {
-		return
+	if host != cfg.Hostname {
+		subdomain = strings.Split(host, ".")[0]
 	}
 
-	path := r.URL.Path
+	if subdomain != "admin-api" {
+		return c.Status(fiber.StatusNotFound).SendString("Not found")
+	}
 
-	switch path {
-	case "/api/start":
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "Processing"})
+	// TODO:
+	// token := c.Get("Authorization")
 
+	// Verificar si el token es válido (aquí un ejemplo simple)
+	// if token != "Bearer mi_token_secreto" {
+	//     return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+	//         "error": "No autorizado",
+	//     })
+	// }
+
+	return c.Next()
+}
+
+func HandleAdminAPI() {
+	api := config.SERVERS["HTTPS"].Group("/api")
+	api.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowMethods: "GET,POST,PUT,OPTIONS",
+		AllowHeaders: "Content-Type",
+	}))
+	api.Use(adminApiMiddleware)
+
+	api.Get("/start", func(c *fiber.Ctx) error {
 		go func() {
 			time.Sleep(5 * time.Second)
 			controlFunc("start")
 		}()
-	case "/api/stop":
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "Processing"})
 
+		return c.JSON(fiber.Map{"status": "Processing"})
+	})
+
+	api.Get("/stop", func(c *fiber.Ctx) error {
 		go func() {
 			time.Sleep(5 * time.Second)
 			controlFunc("stop")
 		}()
-	case "/api/reload":
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "Processing"})
 
+		return c.JSON(fiber.Map{"status": "Processing"})
+	})
+
+	api.Post("/reload", func(c *fiber.Ctx) error {
 		go func() {
 			time.Sleep(5 * time.Second)
 			controlFunc("reload")
 		}()
-	case "/api/stats":
+
+		return c.JSON(fiber.Map{"status": "Processing"})
+	})
+
+	api.Get("/stats", func(c *fiber.Ctx) error {
 		stats := config.GetStats()
-		json.NewEncoder(w).Encode(stats)
-	case "/api/requests":
+
+		return c.JSON(stats)
+	})
+
+	api.Get("/requests", func(c *fiber.Ctx) error {
 		requests := config.GetRequestLogs()
-		json.NewEncoder(w).Encode(requests)
-	case "/api/ips":
+
+		return c.JSON(requests)
+	})
+
+	api.Get("/ips", func(c *fiber.Ctx) error {
 		ips := config.GetIPStats()
-		json.NewEncoder(w).Encode(ips)
-	case "/api/config":
-		if r.Method == "GET" {
-			cfg, _ := config.ReadConfig()
-			json.NewEncoder(w).Encode(cfg)
-		} else if r.Method == "PUT" {
-			var newCfg config.Config
-			if err := json.NewDecoder(r.Body).Decode(&newCfg); err != nil {
-				http.Error(w, "Invalid JSON", http.StatusBadRequest)
-				return
-			}
-			// Validate the config
-			if err := config.ValidateConfig(&newCfg); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			// Write to file
-			data, _ := json.MarshalIndent(newCfg, "", "  ")
-			os.WriteFile(config.CONFIG_PATH, data, 0644)
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
+
+		return c.JSON(ips)
+	})
+
+	api.Get("/config", func(c *fiber.Ctx) error {
+		cfg, _ = config.ReadConfig()
+		return c.JSON(cfg)
+	})
+
+	api.Put("/config", func(c *fiber.Ctx) error {
+		var newCfg config.Config
+
+		if err := json.NewDecoder(bytes.NewReader(c.Body())).Decode(&newCfg); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "JSON mal formado",
+				"details": err.Error(),
+			})
 		}
-	default:
-		http.NotFound(w, r)
-	}
+		// Validate the config
+		if err := config.ValidateConfig(&newCfg); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Configuración inválida",
+				"details": err.Error(),
+			})
+		}
+		// Write to file
+		data, err := json.MarshalIndent(newCfg, "", "  ")
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Error al serializar configuración",
+			})
+		}
+		if err := os.WriteFile(config.CONFIG_PATH, data, 0644); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Error al escribir configuración",
+			})
+		}
+
+		return c.JSON(fiber.Map{"status": "updated"})
+	})
 }

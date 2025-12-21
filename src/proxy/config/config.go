@@ -73,16 +73,16 @@ var (
 	ipStats     map[string]*IPStat
 	stats       Stats
 	mu          sync.RWMutex
+	logChan     chan RequestLog
 )
 
 func init() {
 	ipStats = make(map[string]*IPStat)
+	logChan = make(chan RequestLog, 1000)
+	go processLogs()
 }
 
 func AddRequestLog(method, url, ip, subdomain string, status int) {
-	mu.Lock()
-	defer mu.Unlock()
-
 	log := RequestLog{
 		ID:        fmt.Sprintf("%d", time.Now().UnixNano()),
 		Method:    method,
@@ -93,23 +93,10 @@ func AddRequestLog(method, url, ip, subdomain string, status int) {
 		Status:    status,
 	}
 
-	requestLogs = append(requestLogs, log)
-	if len(requestLogs) > 100 {
-		requestLogs = requestLogs[1:]
-	}
-
-	stats.TotalRequests++
-
-	if stat, exists := ipStats[ip]; exists {
-		stat.Count++
-		stat.LastSeen = time.Now()
-	} else {
-		ipStats[ip] = &IPStat{
-			IP:       strings.Split(ip, ":")[0],
-			Count:    1,
-			LastSeen: time.Now(),
-		}
-		stats.UniqueIPs = len(ipStats)
+	select {
+	case logChan <- log:
+	default:
+		// drop if channel full
 	}
 }
 
@@ -133,6 +120,29 @@ func GetStats() Stats {
 	mu.RLock()
 	defer mu.RUnlock()
 	return stats
+}
+
+func processLogs() {
+	for log := range logChan {
+		mu.Lock()
+		requestLogs = append(requestLogs, log)
+		if len(requestLogs) > 100 {
+			requestLogs = requestLogs[1:]
+		}
+		stats.TotalRequests++
+		if stat, exists := ipStats[log.IP]; exists {
+			stat.Count++
+			stat.LastSeen = time.Now()
+		} else {
+			ipStats[log.IP] = &IPStat{
+				IP:       strings.Split(log.IP, ":")[0],
+				Count:    1,
+				LastSeen: time.Now(),
+			}
+			stats.UniqueIPs = len(ipStats)
+		}
+		mu.Unlock()
+	}
 }
 
 func AllValuesNonEmpty(entry *LoadBalancerEntry) bool {

@@ -7,8 +7,7 @@ import (
 	api "mixproxy/src/api/admin"
 	certificate "mixproxy/src/certs"
 	"mixproxy/src/proxy/config"
-	"mixproxy/src/proxy/tools"
-	"net/url"
+	"mixproxy/src/redis"
 	"os"
 	"strings"
 	"sync"
@@ -16,14 +15,12 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/proxy"
+	"github.com/valyala/fasthttp"
 )
 
-type LoadBalancer struct {
-	URL      url.URL
-	Capacity float64
-}
-
 func Stop() {
+	log.Println("Stop server")
+
 	if err := config.SERVERS["HTTP"].Shutdown(); err != nil {
 		log.Println("Error stopping HTTP:", err)
 	}
@@ -39,9 +36,7 @@ func Control(action string) {
 	case "stop":
 		Stop()
 	case "reload":
-		Stop()
-		time.Sleep(10 * time.Second)
-		Start()
+		reloadConfig()
 	case "createCertificates":
 		os.RemoveAll("./certs")
 		createCertificates()
@@ -53,7 +48,7 @@ func Control(action string) {
 func createCertificates() {
 	cfg, _ := config.ReadConfig()
 
-	if _, err := os.Stat("./certs/wildcard.developer.space.crt"); err == nil {
+	if _, err := os.Stat("./certs/wildcard.crt"); err == nil {
 		return
 	}
 
@@ -70,15 +65,39 @@ func createCertificates() {
 	certificate.Create(DNSnames)
 }
 
+var client *fasthttp.Client = &fasthttp.Client{
+	MaxConnsPerHost:     1000,
+	MaxIdleConnDuration: 90 * time.Second,
+}
+
 func startHttpAndHttpsServer(wg *sync.WaitGroup) {
 	defer wg.Done()
 
+	api.HandleAdminAPI()
+
 	// Configurar proxy reverso para HTTPS
 	config.SERVERS["HTTPS"].All("/*", func(c *fiber.Ctx) error {
+		if c.Method() == "GET" {
+			// Check cache for non-admin GET requests
+			key := generateCacheKey(c)
+			cached, found, err := redis.GetCachedResponse(key)
+			if err != nil {
+				log.Printf("Redis error: %v", err)
+			} else if found {
+				c.Status(cached.Status)
+				for k, v := range cached.Headers {
+					c.Set(k, v)
+				}
+				return c.SendString(cached.Body)
+			}
+		}
+
 		url, err := getHandleFunc(c)
 		if err != nil {
 			return err
 		}
+
+		// config.AddRequestLog(c.Method(), c.OriginalURL(), c.IP(), getSubdomain(c), c.Response().StatusCode())
 
 		if strings.Contains(url, "admin") {
 			auth := c.Get("Authorization")
@@ -100,13 +119,30 @@ func startHttpAndHttpsServer(wg *sync.WaitGroup) {
 			}
 		}
 
-		c.Request().Header.Set("Host", c.Hostname())
+		// c.Request().Header.Set("Host", c.Hostname())
 
-		if err := proxy.Do(c, url+c.OriginalURL()); err != nil {
+		if err := proxy.Do(c, url+c.OriginalURL(), client); err != nil {
 			return err
 		}
 
 		c.Response().Header.Del(fiber.HeaderServer)
+
+		// Cache the response if GET, not admin and cacheable
+		if c.Method() == "GET" && !strings.Contains(url, "admin") {
+			key := generateCacheKey(c)
+			resp := redis.CachedResponse{
+				Status:  c.Response().StatusCode(),
+				Headers: make(map[string]string),
+				Body:    string(c.Response().Body()),
+			}
+			c.Response().Header.VisitAll(func(key, value []byte) {
+				resp.Headers[string(key)] = string(value)
+			})
+			ttl := 15 * time.Minute
+			if err := redis.SetCachedResponse(key, resp, ttl); err != nil {
+				log.Printf("Failed to cache response: %v", err)
+			}
+		}
 
 		return nil
 	})
@@ -136,78 +172,31 @@ func startHttpAndHttpsServer(wg *sync.WaitGroup) {
 
 }
 
+func generateCacheKey(c *fiber.Ctx) string {
+	// Key: method:url:accept
+	accept := c.Get("Accept")
+	return c.Method() + ":" + c.OriginalURL() + ":" + accept
+}
+
+func isCacheable(c *fiber.Ctx) bool {
+	// Check request Cache-Control
+	cc := c.Get("Cache-Control")
+	if strings.Contains(cc, "no-cache") || strings.Contains(cc, "private") {
+		return false
+	}
+	// Don't cache errors
+	if c.Response().StatusCode() >= 400 {
+		return false
+	}
+	return true
+}
+
 func Start() {
+	log.Println("Start server")
 	api.SetControlFunc(Control)
 
-	config.Proxies = make(map[string][]string)
-	tools.ServerSelected = make(map[string]*tools.ServerEntry)
+	reloadConfig()
 
-	// Configurar backends
-	cfg, _ := config.ReadConfig()
-
-	if err := config.ValidateConfig(cfg); err != nil {
-		fmt.Println("❌ Error de validación:", err)
-		os.Exit(0)
-	}
-
-	loadBalancer := map[string]*[]LoadBalancer{}
-
-	if cfg.ModeDeveloper {
-		fmt.Println("Configuring certificates in development mode")
-		createCertificates()
-	}
-
-	for _, e := range cfg.LoadBalancer {
-		vps := []LoadBalancer{}
-		subdomain := e.Subdomain
-
-		for _, v := range e.VPS {
-			vps = append(vps, LoadBalancer{
-				URL:      *tools.MustParseURL(v.IP),
-				Capacity: v.Capacity,
-			})
-		}
-
-		loadBalancer[subdomain] = &vps
-		probability := []tools.VpsProbability{}
-		for _, v := range e.VPS {
-			probability = append(probability, tools.VpsProbability{
-				Probability: v.Capacity,
-				IP:          v.IP,
-			})
-		}
-		tools.SetupServerSelected(subdomain, probability)
-	}
-
-	if cfg.RootLoadBalancer != nil && config.AllValuesNonEmpty(cfg.RootLoadBalancer) {
-		vps := []LoadBalancer{}
-		subdomain := ""
-
-		for _, v := range cfg.RootLoadBalancer.VPS {
-			vps = append(vps, LoadBalancer{
-				URL:      *tools.MustParseURL(v.IP),
-				Capacity: v.Capacity,
-			})
-		}
-
-		loadBalancer[subdomain] = &vps
-		probability := []tools.VpsProbability{}
-		for _, v := range cfg.RootLoadBalancer.VPS {
-			probability = append(probability, tools.VpsProbability{
-				Probability: v.Capacity,
-				IP:          v.IP,
-			})
-		}
-		tools.SetupServerSelected(subdomain, probability)
-	}
-
-	if len(loadBalancer) != 0 {
-		for subdomain, targets := range loadBalancer {
-			for _, target := range *targets {
-				config.Proxies[subdomain] = append(config.Proxies[subdomain], target.URL.String())
-			}
-		}
-	}
 	// Redirigir HTTP a HTTPS
 	httpServerExitDone := &sync.WaitGroup{}
 	httpServerExitDone.Add(1)

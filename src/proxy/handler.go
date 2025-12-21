@@ -11,7 +11,6 @@ import (
 )
 
 var cfg *config.Config
-var redirect map[string][]config.VPSEntry = make(map[string][]config.VPSEntry)
 
 func init() {
 	config, err := config.ReadConfig()
@@ -22,13 +21,9 @@ func init() {
 	}
 
 	cfg = config
-
-	for _, load := range cfg.LoadBalancer {
-		redirect[load.Subdomain] = load.VPS
-	}
 }
 
-func getHandleFunc(ctx *fiber.Ctx) (string, error) {
+func getSubdomain(ctx *fiber.Ctx) string {
 	hostAndPort := string(ctx.BaseURL())
 	host := strings.Split(hostAndPort, "//")[1]
 	subdomain := ""
@@ -37,15 +32,31 @@ func getHandleFunc(ctx *fiber.Ctx) (string, error) {
 		subdomain = strings.Split(host, ".")[0]
 	}
 
-	ip := ctx.IP()
+	return subdomain
+}
 
-	tools.PrintLog("GET", ctx.OriginalURL(), ip, host)
+func getSubdomainAndHost(ctx *fiber.Ctx) (string, string) {
+	hostAndPort := string(ctx.BaseURL())
+	host := strings.Split(hostAndPort, "//")[1]
+	subdomain := ""
 
-	if subdomain == cfg.SubdomainAdminPanel {
-		return "http://admin:4173", nil
+	if host != cfg.Hostname {
+		subdomain = strings.Split(host, ".")[0]
 	}
 
-	target, err := tools.GetTargetIPForSubdomain(subdomain)
+	return subdomain, host
+}
+
+func getHandleFunc(ctx *fiber.Ctx) (string, error) {
+	// ip := ctx.IP()
+
+	// tools.PrintLog("GET", ctx.OriginalURL(), ip, host)
+
+	// if subdomain == cfg.SubdomainAdminPanel {
+	// 	return "http://admin:4173", nil
+	// }
+
+	target, err := tools.GetTargetIPForSubdomain(getSubdomain(ctx))
 	if err != nil {
 		return config.URL_ADMIN_PANEL, err
 	}

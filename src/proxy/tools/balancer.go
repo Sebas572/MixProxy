@@ -32,8 +32,6 @@ func SetupServerSelected(subdomain string, vpsProbability []VpsProbability) {
 }
 
 func GetTargetIPForSubdomain(subdomain string) (string, error) {
-	var target string
-
 	if _, ok := ServerSelected[subdomain]; !ok {
 		return "", fmt.Errorf("Subdomain not found")
 	}
@@ -44,8 +42,7 @@ func GetTargetIPForSubdomain(subdomain string) (string, error) {
 		i = 0
 	}
 
-	target = config.Proxies[subdomain][ServerSelected[subdomain].Turn[i]]
 	ServerSelected[subdomain].Petition++
 
-	return target, nil
+	return config.Proxies[subdomain][ServerSelected[subdomain].Turn[i]], nil
 }
