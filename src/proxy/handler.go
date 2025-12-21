@@ -1,68 +1,54 @@
 package proxy
 
 import (
-	api "mixproxy/src/api/admin"
+	"log"
 	"mixproxy/src/proxy/config"
 	"mixproxy/src/proxy/tools"
-	"net/http"
-	"net/http/httputil"
+	"os"
 	"strings"
+
+	"github.com/gofiber/fiber/v2"
 )
 
-func getHandleFunc(cfg *config.Config) http.HandlerFunc {
-	// Manejador HTTP principal
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Extraer dominio sin puerto
-		host := strings.Split(r.Host, ":")[0]
+var cfg *config.Config
+var redirect map[string][]config.VPSEntry = make(map[string][]config.VPSEntry)
 
-		ip := r.RemoteAddr
-		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-			ip = forwarded
-		}
-		subdomain := ""
-		if host != cfg.Hostname {
-			subdomain = strings.Split(host, ".")[0]
-		}
+func init() {
+	config, err := config.ReadConfig()
+	if err != nil {
+		log.Println("Not found config")
 
-		tools.PrintLog(r.Method, r.RequestURI, ip, host)
+		os.Exit(0)
+	}
 
-		if subdomain == cfg.SubdomainAdminPanel {
-			user, pass, ok := r.BasicAuth()
-			if !ok || user != "admin" || pass != "password" {
-				w.Header().Set("WWW-Authenticate", `Basic realm="Admin"`)
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-			// Proxy to localhost:5173
-			proxy := httputil.NewSingleHostReverseProxy(config.URL_ADMIN_PANEL)
-			proxy.ServeHTTP(w, r)
-			return
-		}
+	cfg = config
 
-		if subdomain == "admin-api" {
-			api.HandleAdminAPI(w, r)
-			return
-		}
+	for _, load := range cfg.LoadBalancer {
+		redirect[load.Subdomain] = load.VPS
+	}
+}
 
-		if _, ok := config.Proxies[subdomain]; !ok {
-			http.Error(w, "Dominio no configurado: "+host, http.StatusNotFound)
-			return
-		}
+func getHandleFunc(ctx *fiber.Ctx) (string, error) {
+	hostAndPort := string(ctx.BaseURL())
+	host := strings.Split(hostAndPort, "//")[1]
+	subdomain := ""
 
-		target, err := tools.GetTargetIPForSubdomain(subdomain)
-		if err != nil {
-			http.Error(w, "Error al obtener target: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
+	if host != cfg.Hostname {
+		subdomain = strings.Split(host, ".")[0]
+	}
 
-		// Log the request
-		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-			ip = forwarded
-		}
-		config.AddRequestLog(r.Method, r.URL.String(), ip, subdomain, 200) // Assuming success for now
+	ip := ctx.IP()
 
-		target.ServeHTTP(w, r)
-	})
+	tools.PrintLog("GET", ctx.OriginalURL(), ip, host)
 
-	return handler
+	if subdomain == cfg.SubdomainAdminPanel {
+		return "http://admin:4173", nil
+	}
+
+	target, err := tools.GetTargetIPForSubdomain(subdomain)
+	if err != nil {
+		return config.URL_ADMIN_PANEL, err
+	}
+
+	return target, nil
 }

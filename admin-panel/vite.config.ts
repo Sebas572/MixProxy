@@ -14,6 +14,16 @@ export default defineConfig(() => ({
       `${config.subdomain_admin_panel}.${config.hostname}`,
     ]
   },
+  preview: {
+    host: "::",
+    port: 4173,
+    allowedHosts: [
+      `${config.subdomain_admin_panel}.${config.hostname}`,
+      config.subdomain_admin_panel,
+      "localhost",
+      "127.0.0.1"
+    ]
+  },
   plugins: [react()],
   resolve: {
     alias: {

@@ -3,14 +3,14 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 type Config struct {
@@ -37,12 +37,12 @@ type VPSEntry struct {
 	Active   bool    `json:"active"`
 }
 
-var SERVERS map[string]*http.Server = map[string]*http.Server{
-	"HTTP":  &http.Server{Addr: ":80"},
-	"HTTPS": &http.Server{Addr: ":443"},
+var SERVERS map[string]*fiber.App = map[string]*fiber.App{
+	"HTTP":  fiber.New(fiber.Config{DisableStartupMessage: true}),
+	"HTTPS": fiber.New(fiber.Config{DisableStartupMessage: true}),
 }
-var Proxies map[string][]*httputil.ReverseProxy = make(map[string][]*httputil.ReverseProxy)
-var URL_ADMIN_PANEL *url.URL = mustParseURL("http://admin:4173")
+var Proxies map[string][]string = make(map[string][]string)
+var URL_ADMIN_PANEL string = "http://admin:4173"
 var CONFIG_PATH string = filepath.Join(".", ".config", "proxy.config.json")
 
 // Monitoring data structures

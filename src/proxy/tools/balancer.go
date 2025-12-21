@@ -1,8 +1,8 @@
 package tools
 
 import (
+	"fmt"
 	"mixproxy/src/proxy/config"
-	"net/http/httputil"
 )
 
 type ServerEntry struct {
@@ -31,8 +31,12 @@ func SetupServerSelected(subdomain string, vpsProbability []VpsProbability) {
 	}
 }
 
-func GetTargetIPForSubdomain(subdomain string) (*httputil.ReverseProxy, error) {
-	var target *httputil.ReverseProxy
+func GetTargetIPForSubdomain(subdomain string) (string, error) {
+	var target string
+
+	if _, ok := ServerSelected[subdomain]; !ok {
+		return "", fmt.Errorf("Subdomain not found")
+	}
 
 	i := ServerSelected[subdomain].Petition
 	if i >= len(ServerSelected[subdomain].Turn) {

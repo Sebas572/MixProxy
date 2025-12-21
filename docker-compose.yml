@@ -23,6 +23,16 @@ services:
     networks:
       - mixproxy
 
+  # redis:
+  #  image: redis:latest
+  #  ports:
+  #    - 6379:6379
+  #  restart: unless-stopped
+  #  environment:
+  #    - REDIS_PASSWORD=mixproxy123
+  #  networks:
+  #    - mixproxy
+
 networks:
   mixproxy:
     external: true
