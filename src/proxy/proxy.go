@@ -38,7 +38,6 @@ func Control(action string) {
 	case "reload":
 		reloadConfig()
 	case "createCertificates":
-		os.RemoveAll("./certs")
 		createCertificates()
 	default:
 		fmt.Println("Invalid action")
@@ -46,15 +45,12 @@ func Control(action string) {
 }
 
 func createCertificates() {
+	os.RemoveAll("./certs")
 	cfg, _ := config.ReadConfig()
-
-	if _, err := os.Stat("./certs/wildcard.crt"); err == nil {
-		return
-	}
 
 	host := cfg.Hostname
 
-	DNSnames := []string{host, cfg.SubdomainAdminPanel + "." + host, "admin-api." + host, "localhost", "127.0.0.1", "*.localhost"}
+	DNSnames := []string{host, cfg.SubdomainAdminPanel + "." + host, "admin-api." + host, "*." + host, "localhost", "127.0.0.1"}
 
 	for _, server := range cfg.LoadBalancer {
 		if server.Subdomain != "" {
@@ -172,7 +168,7 @@ func startHttpAndHttpsServer(wg *sync.WaitGroup) {
 	// Iniciar servidor HTTPS en puerto 443 con certificados wildcard
 	go func() {
 		log.Println("✅ Servidor HTTPS iniciado en puerto 443")
-		crt, key := getTlsConfig()
+		crt, key := getCertificateConfig()
 
 		if err := config.SERVERS["HTTPS"].ListenTLS(":443", crt, key); err != nil {
 			log.Fatalf("❌ Error HTTPS: %v", err)

@@ -29,7 +29,6 @@ func reloadConfig() {
 
 	if cfg.ModeDeveloper {
 		log.Println("Configuring certificates in development mode")
-		createCertificates()
 	}
 
 	for _, e := range cfg.LoadBalancer {
