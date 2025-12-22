@@ -1,5 +1,5 @@
 # Clonar el repositorio
-git clone https://github.com/Sebas572/MixProxy.git
+git clone https://github.com/Sebas572/MixProxy.git --depth=1
 cd MixProxy
 
 wget https://github.com/Sebas572/MixProxy/releases/download/v0.0.2-experimental/mixproxy-linux-amd64

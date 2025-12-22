@@ -1,5 +1,5 @@
 # Clonar el repositorio
-git clone https://github.com/Sebas572/MixProxy.git
+git clone https://github.com/Sebas572/MixProxy.git --depth=1
 cd MixProxy
 
 Invoke-WebRequest -Uri "https://github.com/Sebas572/MixProxy/releases/download/v0.0.2-experimental/mixproxy.exe" -OutFile "mixproxy.exe"
