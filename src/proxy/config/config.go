@@ -7,8 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -46,106 +44,6 @@ var SERVERS map[string]*fiber.App = map[string]*fiber.App{
 var Proxies map[string][]string = make(map[string][]string)
 var URL_ADMIN_PANEL string = "http://admin:4173"
 var CONFIG_PATH string = filepath.Join(".", ".config", "proxy.config.json")
-
-// Monitoring data structures
-type RequestLog struct {
-	ID        string    `json:"id"`
-	Method    string    `json:"method"`
-	URL       string    `json:"url"`
-	IP        string    `json:"ip"`
-	Subdomain string    `json:"subdomain"`
-	Timestamp time.Time `json:"timestamp"`
-	Status    int       `json:"status"`
-}
-
-type IPStat struct {
-	IP       string    `json:"ip"`
-	Count    int       `json:"count"`
-	LastSeen time.Time `json:"lastSeen"`
-}
-
-type Stats struct {
-	TotalRequests     int `json:"totalRequests"`
-	ActiveConnections int `json:"activeConnections"`
-	UniqueIPs         int `json:"uniqueIPs"`
-}
-
-var (
-	requestLogs []RequestLog
-	ipStats     map[string]*IPStat
-	stats       Stats
-	mu          sync.RWMutex
-	logChan     chan RequestLog
-)
-
-func init() {
-	ipStats = make(map[string]*IPStat)
-	logChan = make(chan RequestLog, 1000)
-	go processLogs()
-}
-
-func AddRequestLog(method, url, ip, subdomain string, status int) {
-	log := RequestLog{
-		ID:        fmt.Sprintf("%d", time.Now().UnixNano()),
-		Method:    method,
-		URL:       url,
-		IP:        ip,
-		Subdomain: subdomain,
-		Timestamp: time.Now(),
-		Status:    status,
-	}
-
-	select {
-	case logChan <- log:
-	default:
-		// drop if channel full
-	}
-}
-
-func GetRequestLogs() []RequestLog {
-	mu.RLock()
-	defer mu.RUnlock()
-	return append([]RequestLog{}, requestLogs...)
-}
-
-func GetIPStats() []IPStat {
-	mu.RLock()
-	defer mu.RUnlock()
-	var stats []IPStat = []IPStat{}
-	for _, stat := range ipStats {
-		stats = append(stats, *stat)
-	}
-	return stats
-}
-
-func GetStats() Stats {
-	mu.RLock()
-	defer mu.RUnlock()
-	return stats
-}
-
-func processLogs() {
-	for log := range logChan {
-		mu.Lock()
-		requestLogs = append(requestLogs, log)
-		if len(requestLogs) > 100 {
-			requestLogs = requestLogs[1:]
-		}
-		stats.TotalRequests++
-		if stat, exists := ipStats[log.IP]; exists {
-			stat.Count++
-			stat.LastSeen = time.Now()
-		} else {
-			ipStats[log.IP] = &IPStat{
-				IP:       strings.Split(log.IP, ":")[0],
-				Count:    1,
-				LastSeen: time.Now(),
-			}
-			stats.UniqueIPs = len(ipStats)
-		}
-		mu.Unlock()
-	}
-}
 
 func AllValuesNonEmpty(entry *LoadBalancerEntry) bool {
 	return entry.Type != "" && len(entry.VPS) != 0
