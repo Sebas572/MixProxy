@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile.proxy
     volumes:
       - ./certs:/mixproxy/certs
-      - ./.config:/mixproxy/.config
+      - ./config:/mixproxy/config
     ports:
       - 443:443
       - 80:80
@@ -18,7 +18,7 @@ services:
       context: .
       dockerfile: Dockerfile.admin_panel
     volumes:
-      - ./.config:/.config
+      - ./config:/config
     restart: unless-stopped
     networks:
       - mixproxy

@@ -19,7 +19,7 @@ func input(ask, defaultValue string) string {
 }
 
 func CreateConfig() {
-	os.Mkdir(".config", 0755)
+	os.Mkdir("config", 0755)
 
 	hostname := input("Enter hostname", "developer.space")
 	subdomain_admin_panel := input("Enter subdomain admin panel", "admin")

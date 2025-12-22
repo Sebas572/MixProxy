@@ -1,8 +1,0 @@
-{
-  "hostname": "",
-  "subdomain_admin_panel": "admin",
-  "on_https": true,
-  "mode_developer": true,
-  "load_balancer": [],
-  "root_load_balancer": {}
-}

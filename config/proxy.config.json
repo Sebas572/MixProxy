@@ -1,0 +1,23 @@
+{
+  "hostname": "developer.space",
+  "subdomain_admin_panel": "admin",
+  "on_https": true,
+  "mode_developer": true,
+  "load_balancer": [],
+  "root_load_balancer": {
+    "vps": [
+      {
+        "ip": "http://home:80",
+        "capacity": 1,
+        "active": true
+      }
+    ],
+    "type": "https",
+    "subdomain": "",
+    "active": true,
+    "cache_enabled": true,
+    "cache_paths": [
+      "/*"
+    ]
+  }
+}

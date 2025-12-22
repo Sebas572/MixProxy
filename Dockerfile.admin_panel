@@ -4,9 +4,9 @@ WORKDIR /app
 
 COPY admin-panel .
 
-RUN mkdir ../.config
+RUN mkdir ../config
 
-COPY ./.config ../.config
+COPY ./.config ../config
 
 RUN npm install -g pnpm@latest-10
 

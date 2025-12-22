@@ -43,7 +43,7 @@ var SERVERS map[string]*fiber.App = map[string]*fiber.App{
 }
 var Proxies map[string][]string = make(map[string][]string)
 var URL_ADMIN_PANEL string = "http://admin:4173"
-var CONFIG_PATH string = filepath.Join(".", ".config", "proxy.config.json")
+var CONFIG_PATH string = filepath.Join(".", "config", "proxy.config.json")
 
 func AllValuesNonEmpty(entry *LoadBalancerEntry) bool {
 	return entry.Type != "" && len(entry.VPS) != 0

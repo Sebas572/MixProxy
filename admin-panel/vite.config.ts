@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
-import config from "../.config/proxy.config.json";
+import config from "../config/proxy.config.json";
 import path from "path";
 
 console.log(`${config.subdomain_admin_panel}.${config.hostname}`)
