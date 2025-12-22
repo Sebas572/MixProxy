@@ -44,13 +44,18 @@ To start using MixProxy, follow these simple steps:
    * If you are in development mode, you must run ./mixproxy and select `Create SSL certificates (developer)`.
    * If you have certificates, you must place them in the certs folder. The following two files are expected: localhost.pem and localhost-key.pem
 
-3. **Start the services**:
+3. **Create Network**:
+   ```bash
+   docker network create mixproxy
+   ```
+
+4. **Start the services**:
    After installation, run the following command to start the proxy and the admin panel:
     ```bash
    docker compose up
    ```
 
-3. **Access the services**:
+5. **Access the services**:
    - The proxy will be available on the configured ports.
    - The admin panel can be accessed through your browser (check the configuration for the exact URL).
    - Default admin credentials: Username: `admin`, Password: `password`.
