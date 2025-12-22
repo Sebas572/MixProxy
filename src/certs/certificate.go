@@ -22,7 +22,7 @@ func Create(DNSnames []string) {
 	}
 
 	// Use mkcert to generate trusted certificates
-	args := []string{"-cert-file", "certs/wildcard.developer.space.crt", "-key-file", "certs/wildcard.developer.space.key"}
+	args := []string{"-cert-file", "certs/wildcard.crt", "-key-file", "certs/wildcard.key"}
 	args = append(args, DNSnames...)
 
 	cmd := exec.Command("mkcert", args...)
