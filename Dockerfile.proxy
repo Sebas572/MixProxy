@@ -6,18 +6,19 @@ RUN mkdir src
 RUN mkdir .config
 RUN mkdir certs
 
-COPY ./src ./src
-COPY main.go .
-COPY go.mod .
-COPY go.sum .
-
-RUN go mod download
-RUN ls
-RUN go build
-
 RUN curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
 RUN chmod +x mkcert-v*-linux-amd64
 RUN cp mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+RUN ulimit -n 65535
+
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+
+COPY ./src ./src
+COPY main.go .
+
+RUN go build -ldflags="-s -w"
 
 EXPOSE 80
 EXPOSE 443

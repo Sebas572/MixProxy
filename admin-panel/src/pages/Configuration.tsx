@@ -135,6 +135,22 @@ export default function Configuration() {
       if (!hasActiveVPS) {
         errors.push(`Load balancer ${lbIndex + 1}: At least one VPS must be active`);
       }
+
+      // Validate cache paths
+      if (lb.cache_enabled) {
+        const paths = lb.cache_paths || [];
+        if (paths.length === 0) {
+          errors.push(`Load balancer ${lbIndex + 1}: Cache enabled but no cache paths specified`);
+        } else {
+          paths.forEach((path, pathIndex) => {
+            if (!path.trim()) {
+              errors.push(`Load balancer ${lbIndex + 1}, Cache Path ${pathIndex + 1}: Path cannot be empty`);
+            } else if (!path.startsWith('/')) {
+              errors.push(`Load balancer ${lbIndex + 1}, Cache Path ${pathIndex + 1}: Path must start with '/'`);
+            }
+          });
+        }
+      }
     });
 
     // Validate root load balancer
@@ -184,6 +200,22 @@ export default function Configuration() {
       // Check if there are any active VPS
       if (!hasActiveVPS) {
         errors.push(`Root Load Balancer: At least one VPS must be active`);
+      }
+
+      // Validate cache paths for root
+      if (cfg.root_load_balancer.cache_enabled) {
+        const paths = cfg.root_load_balancer.cache_paths || [];
+        if (paths.length === 0) {
+          errors.push(`Root Load Balancer: Cache enabled but no cache paths specified`);
+        } else {
+          paths.forEach((path, pathIndex) => {
+            if (!path.trim()) {
+              errors.push(`Root Load Balancer, Cache Path ${pathIndex + 1}: Path cannot be empty`);
+            } else if (!path.startsWith('/')) {
+              errors.push(`Root Load Balancer, Cache Path ${pathIndex + 1}: Path must start with '/'`);
+            }
+          });
+        }
       }
     }
 
@@ -257,6 +289,8 @@ export default function Configuration() {
         subdomain: "",
         type: "",
         active: true,
+        cache_enabled: false,
+        cache_paths: [],
         vps: [{ ip: "", capacity: 1, active: true }]
       });
       return { ...prev, load_balancer: newLB };
@@ -268,6 +302,38 @@ export default function Configuration() {
       if (!prev) return null;
       const newLB = [...prev.load_balancer];
       newLB.splice(index, 1);
+      return { ...prev, load_balancer: newLB };
+    });
+  };
+
+  const updateCachePath = (lbIndex: number, pathIndex: number, value: string) => {
+    setFormData(prev => {
+      if (!prev) return null;
+      const newLB = [...prev.load_balancer];
+      const newPaths = [...(newLB[lbIndex].cache_paths || [])];
+      newPaths[pathIndex] = value;
+      newLB[lbIndex] = { ...newLB[lbIndex], cache_paths: newPaths };
+      return { ...prev, load_balancer: newLB };
+    });
+  };
+
+  const addCachePath = (lbIndex: number) => {
+    setFormData(prev => {
+      if (!prev) return null;
+      const newLB = [...prev.load_balancer];
+      const newPaths = [...(newLB[lbIndex].cache_paths || []), ""];
+      newLB[lbIndex] = { ...newLB[lbIndex], cache_paths: newPaths };
+      return { ...prev, load_balancer: newLB };
+    });
+  };
+
+  const removeCachePath = (lbIndex: number, pathIndex: number) => {
+    setFormData(prev => {
+      if (!prev) return null;
+      const newLB = [...prev.load_balancer];
+      const newPaths = [...(newLB[lbIndex].cache_paths || [])];
+      newPaths.splice(pathIndex, 1);
+      newLB[lbIndex] = { ...newLB[lbIndex], cache_paths: newPaths };
       return { ...prev, load_balancer: newLB };
     });
   };
@@ -310,7 +376,7 @@ export default function Configuration() {
   const addRootLoadBalancer = () => {
     setFormData(prev => {
       if (!prev) return null;
-      return { ...prev, root_load_balancer: { vps: [{ ip: "", capacity: 1, active: true }], type: "https", active: true } };
+      return { ...prev, root_load_balancer: { vps: [{ ip: "", capacity: 1, active: true }], type: "https", active: true, cache_enabled: false, cache_paths: [] } };
     });
   };
 
@@ -319,6 +385,32 @@ export default function Configuration() {
       if (!prev) return null;
       const { root_load_balancer, ...rest } = prev;
       return rest;
+    });
+  };
+
+  const updateRootCachePath = (pathIndex: number, value: string) => {
+    setFormData(prev => {
+      if (!prev || !prev.root_load_balancer) return prev;
+      const newPaths = [...(prev.root_load_balancer.cache_paths || [])];
+      newPaths[pathIndex] = value;
+      return { ...prev, root_load_balancer: { ...prev.root_load_balancer, cache_paths: newPaths } };
+    });
+  };
+
+  const addRootCachePath = () => {
+    setFormData(prev => {
+      if (!prev || !prev.root_load_balancer) return prev;
+      const newPaths = [...(prev.root_load_balancer.cache_paths || []), ""];
+      return { ...prev, root_load_balancer: { ...prev.root_load_balancer, cache_paths: newPaths } };
+    });
+  };
+
+  const removeRootCachePath = (pathIndex: number) => {
+    setFormData(prev => {
+      if (!prev || !prev.root_load_balancer) return prev;
+      const newPaths = [...(prev.root_load_balancer.cache_paths || [])];
+      newPaths.splice(pathIndex, 1);
+      return { ...prev, root_load_balancer: { ...prev.root_load_balancer, cache_paths: newPaths } };
     });
   };
 
@@ -458,6 +550,42 @@ export default function Configuration() {
                 )))}
               </div>
             </div>
+
+            <div className="space-y-2">
+              <div className="center-switch">
+                <Label>Cache Enabled</Label>
+                <Switch
+                  checked={formData.root_load_balancer.cache_enabled}
+                  onCheckedChange={(checked) => updateRootLB('cache_enabled', checked)}
+                />
+              </div>
+              {formData.root_load_balancer.cache_enabled && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Cache Paths</Label>
+                    <Button size="sm" variant="outline" onClick={addRootCachePath}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Path
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {(formData.root_load_balancer.cache_paths || []).map((path, k) => (
+                      <div key={k} className="flex gap-2 items-center">
+                        <Input
+                          placeholder="/path or /path/*"
+                          value={path}
+                          onChange={(e) => updateRootCachePath(k, e.target.value)}
+                          className="bg-secondary border-border font-mono flex-1"
+                        />
+                        <Button size="sm" variant="ghost" onClick={() => removeRootCachePath(k)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <Button variant="outline" onClick={addRootLoadBalancer}>
@@ -544,6 +672,42 @@ export default function Configuration() {
                     </div>
                   ))}
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="center-switch">
+                  <Label>Cache Enabled</Label>
+                  <Switch
+                    checked={lb.cache_enabled}
+                    onCheckedChange={(checked) => updateLoadBalancer(i, 'cache_enabled', checked)}
+                  />
+                </div>
+                {lb.cache_enabled && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Cache Paths</Label>
+                      <Button size="sm" variant="outline" onClick={() => addCachePath(i)}>
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add Path
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {(lb.cache_paths || []).map((path, k) => (
+                        <div key={k} className="flex gap-2 items-center">
+                          <Input
+                            placeholder="/path or /path/*"
+                            value={path}
+                            onChange={(e) => updateCachePath(i, k, e.target.value)}
+                            className="bg-secondary border-border font-mono flex-1"
+                          />
+                          <Button size="sm" variant="ghost" onClick={() => removeCachePath(i, k)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ))}

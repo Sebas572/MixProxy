@@ -3,14 +3,12 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
-	"time"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 type Config struct {
@@ -23,10 +21,12 @@ type Config struct {
 }
 
 type LoadBalancerEntry struct {
-	VPS       []VPSEntry `json:"vps"`
-	Type      string     `json:"type"`
-	Subdomain string     `json:"subdomain"`
-	Active    bool       `json:"active"`
+	VPS          []VPSEntry `json:"vps"`
+	Type         string     `json:"type"`
+	Subdomain    string     `json:"subdomain"`
+	Active       bool       `json:"active"`
+	CacheEnabled bool       `json:"cache_enabled"`
+	CachePaths   []string   `json:"cache_paths"`
 }
 
 type VPSEntry struct {
@@ -37,103 +37,13 @@ type VPSEntry struct {
 	Active   bool    `json:"active"`
 }
 
-var SERVERS map[string]*http.Server = map[string]*http.Server{
-	"HTTP":  &http.Server{Addr: ":80"},
-	"HTTPS": &http.Server{Addr: ":443"},
+var SERVERS map[string]*fiber.App = map[string]*fiber.App{
+	"HTTP":  fiber.New(fiber.Config{DisableStartupMessage: true}),
+	"HTTPS": fiber.New(fiber.Config{DisableStartupMessage: true}),
 }
-var Proxies map[string][]*httputil.ReverseProxy = make(map[string][]*httputil.ReverseProxy)
-var URL_ADMIN_PANEL *url.URL = mustParseURL("http://admin:4173")
+var Proxies map[string][]string = make(map[string][]string)
+var URL_ADMIN_PANEL string = "http://admin:4173"
 var CONFIG_PATH string = filepath.Join(".", ".config", "proxy.config.json")
-
-// Monitoring data structures
-type RequestLog struct {
-	ID        string    `json:"id"`
-	Method    string    `json:"method"`
-	URL       string    `json:"url"`
-	IP        string    `json:"ip"`
-	Subdomain string    `json:"subdomain"`
-	Timestamp time.Time `json:"timestamp"`
-	Status    int       `json:"status"`
-}
-
-type IPStat struct {
-	IP       string    `json:"ip"`
-	Count    int       `json:"count"`
-	LastSeen time.Time `json:"lastSeen"`
-}
-
-type Stats struct {
-	TotalRequests     int `json:"totalRequests"`
-	ActiveConnections int `json:"activeConnections"`
-	UniqueIPs         int `json:"uniqueIPs"`
-}
-
-var (
-	requestLogs []RequestLog
-	ipStats     map[string]*IPStat
-	stats       Stats
-	mu          sync.RWMutex
-)
-
-func init() {
-	ipStats = make(map[string]*IPStat)
-}
-
-func AddRequestLog(method, url, ip, subdomain string, status int) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	log := RequestLog{
-		ID:        fmt.Sprintf("%d", time.Now().UnixNano()),
-		Method:    method,
-		URL:       url,
-		IP:        ip,
-		Subdomain: subdomain,
-		Timestamp: time.Now(),
-		Status:    status,
-	}
-
-	requestLogs = append(requestLogs, log)
-	if len(requestLogs) > 100 {
-		requestLogs = requestLogs[1:]
-	}
-
-	stats.TotalRequests++
-
-	if stat, exists := ipStats[ip]; exists {
-		stat.Count++
-		stat.LastSeen = time.Now()
-	} else {
-		ipStats[ip] = &IPStat{
-			IP:       strings.Split(ip, ":")[0],
-			Count:    1,
-			LastSeen: time.Now(),
-		}
-		stats.UniqueIPs = len(ipStats)
-	}
-}
-
-func GetRequestLogs() []RequestLog {
-	mu.RLock()
-	defer mu.RUnlock()
-	return append([]RequestLog{}, requestLogs...)
-}
-
-func GetIPStats() []IPStat {
-	mu.RLock()
-	defer mu.RUnlock()
-	var stats []IPStat = []IPStat{}
-	for _, stat := range ipStats {
-		stats = append(stats, *stat)
-	}
-	return stats
-}
-
-func GetStats() Stats {
-	mu.RLock()
-	defer mu.RUnlock()
-	return stats
-}
 
 func AllValuesNonEmpty(entry *LoadBalancerEntry) bool {
 	return entry.Type != "" && len(entry.VPS) != 0
@@ -160,6 +70,18 @@ func ValidateConfig(cfg *Config) error {
 			} else {
 				fmt.Printf("✅ Load balancer for subdomain '%s' is correctly configured (sum = 1.0)\n", e.Subdomain)
 			}
+
+			// Validate cache paths
+			if e.CacheEnabled {
+				if len(e.CachePaths) == 0 {
+					return fmt.Errorf("cache enabled for subdomain '%s' but no cache paths specified", e.Subdomain)
+				}
+				for _, path := range e.CachePaths {
+					if !strings.HasPrefix(path, "/") {
+						return fmt.Errorf("cache path '%s' for subdomain '%s' must start with '/'", path, e.Subdomain)
+					}
+				}
+			}
 		}
 	} else {
 		fmt.Println("The configuration file is empty")
@@ -179,6 +101,18 @@ func ValidateConfig(cfg *Config) error {
 		}
 		if sum != 1 {
 			return fmt.Errorf("invalid root load balancer configuration: sum of capacities must be 1.0")
+		}
+
+		// Validate cache paths for root
+		if cfg.RootLoadBalancer.CacheEnabled {
+			if len(cfg.RootLoadBalancer.CachePaths) == 0 {
+				return fmt.Errorf("cache enabled for root load balancer but no cache paths specified")
+			}
+			for _, path := range cfg.RootLoadBalancer.CachePaths {
+				if !strings.HasPrefix(path, "/") {
+					return fmt.Errorf("cache path '%s' for root load balancer must start with '/'", path)
+				}
+			}
 		}
 	}
 

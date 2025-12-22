@@ -6,7 +6,23 @@
 
 </div>
 
-MixProxy is a high-performance reverse proxy server written in Go, designed to efficiently route traffic to services with load balancing capabilities. It includes an administration panel for easy configuration and monitoring.
+MixProxy is a reverse proxy server written in Go, designed to efficiently route traffic to services with load balancing capabilities. It includes an administration panel for easy configuration and monitoring.
+
+## Screenshots
+
+### Dashboard
+![Dashboard](screenshots/dashboard.png)
+
+### IPs
+![IPs](screenshots/IPs.png)
+
+### Requests
+![Requests](screenshots/requests.png)
+
+### Configuration
+![Configuration 01](screenshots/Configuration_01.png)
+
+![Configuration 02](screenshots/Configuration_02.png)
 
 ## Installation
 
@@ -26,7 +42,7 @@ To start using MixProxy, follow these simple steps:
 
 2. **Configure certificates**:
    * If you are in development mode, this will be configured automatically and you can skip this step.
-   * If you have certificates, you must place them in the certs folder. The following two files are expected: wildcard.<domain>.crt and wildcard.<domain>.key
+   * If you have certificates, you must place them in the certs folder. The following two files are expected: wildcard.crt and wildcard.key
 
 3. **Start the services**:
    After installation, run the following command to start the proxy and the admin panel:
@@ -62,7 +78,8 @@ The proxy supports both root domain and subdomain-based routing, with configurab
 
 ### BackEnd
 - **Go**: Core proxy logic and server implementation
-- **HTTP/2**: Modern HTTP protocol support
+- **HTTP/1.1**: support
+- **HTTP/2**: Coming soon support
 
 ### FrontEnd (Admin Panel)
 - **React**: User interface framework

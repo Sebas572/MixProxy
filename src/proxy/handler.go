@@ -1,68 +1,66 @@
 package proxy
 
 import (
-	api "mixproxy/src/api/admin"
+	"log"
 	"mixproxy/src/proxy/config"
 	"mixproxy/src/proxy/tools"
-	"net/http"
-	"net/http/httputil"
+	"os"
 	"strings"
+
+	"github.com/gofiber/fiber/v2"
 )
 
-func getHandleFunc(cfg *config.Config) http.HandlerFunc {
-	// Manejador HTTP principal
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Extraer dominio sin puerto
-		host := strings.Split(r.Host, ":")[0]
+var cfg *config.Config
 
-		ip := r.RemoteAddr
-		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-			ip = forwarded
-		}
-		subdomain := ""
-		if host != cfg.Hostname {
-			subdomain = strings.Split(host, ".")[0]
-		}
+func init() {
+	config, err := config.ReadConfig()
+	if err != nil {
+		log.Println("Not found config")
 
-		tools.PrintLog(r.Method, r.RequestURI, ip, host)
+		os.Exit(0)
+	}
 
-		if subdomain == cfg.SubdomainAdminPanel {
-			user, pass, ok := r.BasicAuth()
-			if !ok || user != "admin" || pass != "password" {
-				w.Header().Set("WWW-Authenticate", `Basic realm="Admin"`)
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-			// Proxy to localhost:5173
-			proxy := httputil.NewSingleHostReverseProxy(config.URL_ADMIN_PANEL)
-			proxy.ServeHTTP(w, r)
-			return
-		}
+	cfg = config
+}
 
-		if subdomain == "admin-api" {
-			api.HandleAdminAPI(w, r)
-			return
-		}
+func getSubdomain(ctx *fiber.Ctx) string {
+	hostAndPort := string(ctx.BaseURL())
+	host := strings.Split(hostAndPort, "//")[1]
+	subdomain := ""
 
-		if _, ok := config.Proxies[subdomain]; !ok {
-			http.Error(w, "Dominio no configurado: "+host, http.StatusNotFound)
-			return
-		}
+	if host != cfg.Hostname {
+		subdomain = strings.Split(host, ".")[0]
+	}
 
-		target, err := tools.GetTargetIPForSubdomain(subdomain)
-		if err != nil {
-			http.Error(w, "Error al obtener target: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
+	return subdomain
+}
 
-		// Log the request
-		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-			ip = forwarded
-		}
-		config.AddRequestLog(r.Method, r.URL.String(), ip, subdomain, 200) // Assuming success for now
+func getSubdomainAndHost(ctx *fiber.Ctx) (string, string) {
+	hostAndPort := string(ctx.BaseURL())
+	host := strings.Split(hostAndPort, "//")[1]
+	subdomain := ""
 
-		target.ServeHTTP(w, r)
-	})
+	if host != cfg.Hostname {
+		subdomain = strings.Split(host, ".")[0]
+	}
 
-	return handler
+	return subdomain, host
+}
+
+func getHandleFunc(ctx *fiber.Ctx) (string, error) {
+	subdomain := getSubdomain(ctx)
+	// ip := ctx.IP()
+
+	// tools.PrintLog("GET", ctx.OriginalURL(), ip, host)
+
+	if subdomain == cfg.SubdomainAdminPanel {
+		return "http://admin:4173", nil
+	}
+
+	target, err := tools.GetTargetIPForSubdomain(subdomain)
+	if err != nil {
+		return config.URL_ADMIN_PANEL, err
+	}
+
+	return target, nil
 }
