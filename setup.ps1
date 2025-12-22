@@ -2,7 +2,7 @@
 git clone https://github.com/Sebas572/MixProxy.git
 cd MixProxy
 
-Invoke-WebRequest -Uri "https://github.com/Sebas572/MixProxy/releases/download/dev/mixproxy.exe" -OutFile "mixproxy.exe"
+Invoke-WebRequest -Uri "https://github.com/Sebas572/MixProxy/releases/download/v0.0.2-experimental/mixproxy.exe" -OutFile "mixproxy.exe"
 
 rm -r .config
 

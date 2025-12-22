@@ -2,7 +2,7 @@
 git clone https://github.com/Sebas572/MixProxy.git
 cd MixProxy
 
-wget https://github.com/Sebas572/MixProxy/releases/download/dev/mixproxy-linux-amd64
+wget https://github.com/Sebas572/MixProxy/releases/download/v0.0.2-experimental/mixproxy-linux-amd64
 
 rm -r .config
 
