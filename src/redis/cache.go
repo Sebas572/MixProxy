@@ -72,3 +72,47 @@ func GetCachedResponse(key string) (CachedResponse, bool, error) {
 	}
 	return resp, true, nil
 }
+
+func SetAllowSubdomainToUseCache(subdomain string, value bool) error {
+	return rdb.Set(ctx, subdomain, value, -1).Err()
+}
+
+func DoesTheSubdomainAllowCache(subdomain string) bool {
+	isAllow, err := rdb.Get(ctx, subdomain).Bool()
+	if err != nil {
+		return false
+	}
+
+	return isAllow
+}
+
+func SetCachePaths(subdomain string, paths []string) error {
+	data, err := json.Marshal(paths)
+	if err != nil {
+		return err
+	}
+	return rdb.Set(ctx, "cache_paths:"+subdomain, data, -1).Err()
+}
+
+func GetCachePaths(subdomain string) ([]string, error) {
+	data, err := rdb.Get(ctx, "cache_paths:"+subdomain).Result()
+	if err == rd.Nil {
+		return []string{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var paths []string
+	err = json.Unmarshal([]byte(data), &paths)
+	if err != nil {
+		return nil, err
+	}
+	return paths, nil
+}
+
+func Clean() {
+	err := rdb.FlushDB(ctx).Err()
+	if err != nil {
+		panic(err)
+	}
+}

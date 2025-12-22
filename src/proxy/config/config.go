@@ -23,10 +23,12 @@ type Config struct {
 }
 
 type LoadBalancerEntry struct {
-	VPS       []VPSEntry `json:"vps"`
-	Type      string     `json:"type"`
-	Subdomain string     `json:"subdomain"`
-	Active    bool       `json:"active"`
+	VPS          []VPSEntry `json:"vps"`
+	Type         string     `json:"type"`
+	Subdomain    string     `json:"subdomain"`
+	Active       bool       `json:"active"`
+	CacheEnabled bool       `json:"cache_enabled"`
+	CachePaths   []string   `json:"cache_paths"`
 }
 
 type VPSEntry struct {
@@ -170,6 +172,18 @@ func ValidateConfig(cfg *Config) error {
 			} else {
 				fmt.Printf("✅ Load balancer for subdomain '%s' is correctly configured (sum = 1.0)\n", e.Subdomain)
 			}
+
+			// Validate cache paths
+			if e.CacheEnabled {
+				if len(e.CachePaths) == 0 {
+					return fmt.Errorf("cache enabled for subdomain '%s' but no cache paths specified", e.Subdomain)
+				}
+				for _, path := range e.CachePaths {
+					if !strings.HasPrefix(path, "/") {
+						return fmt.Errorf("cache path '%s' for subdomain '%s' must start with '/'", path, e.Subdomain)
+					}
+				}
+			}
 		}
 	} else {
 		fmt.Println("The configuration file is empty")
@@ -189,6 +203,18 @@ func ValidateConfig(cfg *Config) error {
 		}
 		if sum != 1 {
 			return fmt.Errorf("invalid root load balancer configuration: sum of capacities must be 1.0")
+		}
+
+		// Validate cache paths for root
+		if cfg.RootLoadBalancer.CacheEnabled {
+			if len(cfg.RootLoadBalancer.CachePaths) == 0 {
+				return fmt.Errorf("cache enabled for root load balancer but no cache paths specified")
+			}
+			for _, path := range cfg.RootLoadBalancer.CachePaths {
+				if !strings.HasPrefix(path, "/") {
+					return fmt.Errorf("cache path '%s' for root load balancer must start with '/'", path)
+				}
+			}
 		}
 	}
 

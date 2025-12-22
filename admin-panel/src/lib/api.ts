@@ -36,6 +36,8 @@ export interface LoadBalancerEntry {
   type: string;
   subdomain?: string;
   active: boolean;
+  cache_enabled: boolean;
+  cache_paths: string[];
 }
 
 export interface Config {

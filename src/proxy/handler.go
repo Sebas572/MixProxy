@@ -48,15 +48,16 @@ func getSubdomainAndHost(ctx *fiber.Ctx) (string, string) {
 }
 
 func getHandleFunc(ctx *fiber.Ctx) (string, error) {
+	subdomain := getSubdomain(ctx)
 	// ip := ctx.IP()
 
 	// tools.PrintLog("GET", ctx.OriginalURL(), ip, host)
 
-	// if subdomain == cfg.SubdomainAdminPanel {
-	// 	return "http://admin:4173", nil
-	// }
+	if subdomain == cfg.SubdomainAdminPanel {
+		return "http://admin:4173", nil
+	}
 
-	target, err := tools.GetTargetIPForSubdomain(getSubdomain(ctx))
+	target, err := tools.GetTargetIPForSubdomain(subdomain)
 	if err != nil {
 		return config.URL_ADMIN_PANEL, err
 	}

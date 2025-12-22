@@ -4,6 +4,7 @@ import (
 	"log"
 	"mixproxy/src/proxy/config"
 	"mixproxy/src/proxy/tools"
+	"mixproxy/src/redis"
 	"os"
 )
 
@@ -17,6 +18,7 @@ func reloadConfig() {
 	tools.ServerSelected = make(map[string]*tools.ServerEntry)
 
 	cfg, _ := config.ReadConfig()
+	redis.Clean()
 
 	if err := config.ValidateConfig(cfg); err != nil {
 		log.Println("❌ Error de validación:", err)
@@ -33,6 +35,8 @@ func reloadConfig() {
 	for _, e := range cfg.LoadBalancer {
 		vps := []LoadBalancer{}
 		subdomain := e.Subdomain
+		redis.SetAllowSubdomainToUseCache(subdomain, e.CacheEnabled)
+		redis.SetCachePaths(subdomain, e.CachePaths)
 
 		for _, v := range e.VPS {
 			vps = append(vps, LoadBalancer{
@@ -55,6 +59,8 @@ func reloadConfig() {
 	if cfg.RootLoadBalancer != nil && config.AllValuesNonEmpty(cfg.RootLoadBalancer) {
 		vps := []LoadBalancer{}
 		subdomain := ""
+		redis.SetAllowSubdomainToUseCache(subdomain, cfg.RootLoadBalancer.CacheEnabled)
+		redis.SetCachePaths(subdomain, cfg.RootLoadBalancer.CachePaths)
 
 		for _, v := range cfg.RootLoadBalancer.VPS {
 			vps = append(vps, LoadBalancer{

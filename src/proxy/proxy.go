@@ -88,6 +88,13 @@ func startHttpAndHttpsServer(wg *sync.WaitGroup) {
 				for k, v := range cached.Headers {
 					c.Set(k, v)
 				}
+				// Set Server header for cached response
+				subdomain, _ := getSubdomainAndHost(c)
+				if redis.DoesTheSubdomainAllowCache(subdomain) {
+					c.Set(fiber.HeaderServer, "Mixproxy (with cache)")
+				} else {
+					c.Set(fiber.HeaderServer, "Mixproxy")
+				}
 				return c.SendString(cached.Body)
 			}
 		}
@@ -125,10 +132,16 @@ func startHttpAndHttpsServer(wg *sync.WaitGroup) {
 			return err
 		}
 
-		c.Response().Header.Del(fiber.HeaderServer)
+		// Set Server header
+		subdomain, _ := getSubdomainAndHost(c)
+		if redis.DoesTheSubdomainAllowCache(subdomain) {
+			c.Set(fiber.HeaderServer, "Mixproxy (with cache)")
+		} else {
+			c.Set(fiber.HeaderServer, "Mixproxy")
+		}
 
 		// Cache the response if GET, not admin and cacheable
-		if c.Method() == "GET" && !strings.Contains(url, "admin") {
+		if c.Method() == "GET" && !strings.Contains(url, "admin") && isCacheable(c) {
 			key := generateCacheKey(c)
 			resp := redis.CachedResponse{
 				Status:  c.Response().StatusCode(),
@@ -173,21 +186,63 @@ func startHttpAndHttpsServer(wg *sync.WaitGroup) {
 }
 
 func generateCacheKey(c *fiber.Ctx) string {
-	// Key: method:url:accept
+	// Key: method:url/path:accept
 	accept := c.Get("Accept")
-	return c.Method() + ":" + c.OriginalURL() + ":" + accept
+	_, host := getSubdomainAndHost(c)
+
+	return c.Method() + ":" + host + c.OriginalURL() + ":" + accept
+}
+
+func pathMatches(pattern, path string) bool {
+	if pattern == "/*" {
+		return true
+	}
+
+	if strings.HasSuffix(pattern, "/*") {
+		prefix := strings.TrimSuffix(pattern, "/*")
+		return strings.HasPrefix(path, prefix)
+	}
+	return pattern == path
 }
 
 func isCacheable(c *fiber.Ctx) bool {
+	subdomain := getSubdomain(c)
+	path := c.OriginalURL()
+
+	// Check if subdomain allows cache
+	if !redis.DoesTheSubdomainAllowCache(subdomain) {
+		return false
+	}
+
+	// Get cache paths for subdomain
+	paths, err := redis.GetCachePaths(subdomain)
+	if err != nil {
+		return false
+	}
+
+	pathMatchesConfig := false
+	for _, p := range paths {
+		if pathMatches(p, path) {
+			pathMatchesConfig = true
+			break
+		}
+	}
+
+	if !pathMatchesConfig {
+		return false
+	}
+
 	// Check request Cache-Control
 	cc := c.Get("Cache-Control")
 	if strings.Contains(cc, "no-cache") || strings.Contains(cc, "private") {
 		return false
 	}
+
 	// Don't cache errors
 	if c.Response().StatusCode() >= 400 {
 		return false
 	}
+
 	return true
 }
 
