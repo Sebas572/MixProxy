@@ -41,8 +41,8 @@ To start using MixProxy, follow these simple steps:
      ```
 
 2. **Configure certificates**:
-   * If you are in development mode, this will be configured automatically and you can skip this step.
-   * If you have certificates, you must place them in the certs folder. The following two files are expected: wildcard.crt and wildcard.key
+   * If you are in development mode, you must run ./mixproxy and select `Create SSL certificates (developer)`.
+   * If you have certificates, you must place them in the certs folder. The following two files are expected: localhost.pem and localhost-key.pem
 
 3. **Start the services**:
    After installation, run the following command to start the proxy and the admin panel:
