@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"mixproxy/src/redis"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 )
@@ -88,30 +86,19 @@ func HandleAdminAPI() {
 	})
 
 	api.Get("/stats", func(c *fiber.Ctx) error {
-		stats, err := redis.GetStats()
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-		}
-
-		return c.JSON(stats)
+		return c.JSON(fiber.Map{
+			"totalRequests":     0,
+			"activeConnections": 0,
+			"uniqueIPs":         0,
+		})
 	})
 
 	api.Get("/requests", func(c *fiber.Ctx) error {
-		requests, err := redis.GetRequestLogs()
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-		}
-
-		return c.JSON(requests)
+		return c.JSON([]fiber.Map{})
 	})
 
 	api.Get("/ips", func(c *fiber.Ctx) error {
-		ips, err := redis.GetIPStats()
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-		}
-
-		return c.JSON(ips)
+		return c.JSON([]fiber.Map{})
 	})
 
 	api.Get("/config", func(c *fiber.Ctx) error {
