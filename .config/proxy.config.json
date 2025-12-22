@@ -1,5 +1,5 @@
 {
-  "hostname": "developer.space",
+  "hostname": "",
   "subdomain_admin_panel": "admin",
   "on_https": true,
   "mode_developer": true,
