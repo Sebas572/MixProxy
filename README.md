@@ -87,3 +87,7 @@ The proxy supports both root domain and subdomain-based routing, with configurab
 - **Vite**: Fast build tool and development server
 - **Tailwind CSS**: Utility-first CSS framework
 - **shadcn/ui**: Modern UI components
+
+
+> [!WARNING]
+> IP address logging has been temporarily disabled in order to obtain better benchmark performance. These logs (which were visible from the admin-panel [dashbaord, requests, and IPs]) will be reinstated in future updates.
