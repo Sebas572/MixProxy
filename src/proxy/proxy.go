@@ -6,6 +6,7 @@ import (
 	"log"
 	api "mixproxy/src/api/admin"
 	certificate "mixproxy/src/certs"
+	"mixproxy/src/logger"
 	"mixproxy/src/proxy/config"
 	"mixproxy/src/redis"
 	"os"
@@ -73,7 +74,7 @@ func startHttpAndHttpsServer(wg *sync.WaitGroup) {
 
 	// Configurar proxy reverso para HTTPS
 	config.SERVERS["HTTPS"].All("/*", func(c *fiber.Ctx) error {
-		// subdomain, host := getSubdomainAndHost(c)
+		subdomain, host := getSubdomainAndHost(c)
 
 		if c.Method() == "GET" {
 			// Check cache for non-admin GET requests
@@ -93,6 +94,7 @@ func startHttpAndHttpsServer(wg *sync.WaitGroup) {
 				} else {
 					c.Set(fiber.HeaderServer, "Mixproxy")
 				}
+				logger.AddRequestLog(c.Method(), host+c.OriginalURL(), c.IP(), subdomain, c.Response().StatusCode(), true)
 				return c.SendString(cached.Body)
 			}
 		}
@@ -102,7 +104,7 @@ func startHttpAndHttpsServer(wg *sync.WaitGroup) {
 			return err
 		}
 
-		// go redis.AddRequestLog(c.Method(), host+c.OriginalURL(), c.IP(), subdomain, c.Response().StatusCode())
+		logger.AddRequestLog(c.Method(), host+c.OriginalURL(), c.IP(), subdomain, c.Response().StatusCode(), false)
 		// config.AddRequestLog(c.Method(), c.OriginalURL(), c.IP(), getSubdomain(c), c.Response().StatusCode())
 
 		if strings.Contains(url, "admin") {

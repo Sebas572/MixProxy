@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"mixproxy/src/logger"
 	"mixproxy/src/proxy/config"
 	"os"
 	"strings"
@@ -56,7 +57,44 @@ func HandleAdminAPI() {
 		AllowMethods: "GET,POST,PUT,OPTIONS",
 		AllowHeaders: "Content-Type",
 	}))
+
+	api.Get("/logs", func(c *fiber.Ctx) error {
+		date := c.Query("date")
+		var logFile string
+		if date == "" {
+			logFile = logger.GetCurrentLogFile()
+			if logFile == "" {
+				return c.Status(404).SendString("No current log file")
+			}
+		} else {
+			logFile = "./logs/log-" + date
+		}
+
+		// Check if file exists
+		if _, err := os.Stat(logFile); os.IsNotExist(err) {
+			return c.Status(404).SendString("Log file not found")
+		}
+
+		return c.SendFile(logFile)
+	})
+
 	api.Use(adminApiMiddleware)
+
+	api.Get("/logs/list", func(c *fiber.Ctx) error {
+		entries, err := os.ReadDir("./logs")
+		if err != nil {
+			return c.Status(500).SendString("Error reading logs directory")
+		}
+
+		var logFiles []string
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.HasPrefix(entry.Name(), "log-") {
+				logFiles = append(logFiles, entry.Name())
+			}
+		}
+
+		return c.JSON(logFiles)
+	})
 
 	api.Get("/start", func(c *fiber.Ctx) error {
 		go func() {

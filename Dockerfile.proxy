@@ -5,6 +5,7 @@ WORKDIR /mixproxy
 RUN mkdir src
 RUN mkdir config
 RUN mkdir certs
+RUN mkdir logs
 
 RUN curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
 RUN chmod +x mkcert-v*-linux-amd64
