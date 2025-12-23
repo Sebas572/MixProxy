@@ -1,9 +1,10 @@
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, RefreshCw } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MethodBadge } from "@/components/ui/method-badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect } from "react";
 import { RequestLog, api } from "@/lib/api";
 
@@ -27,33 +28,57 @@ const columns = [
 export default function Requests() {
   const [requests, setRequests] = useState<RequestLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [logFiles, setLogFiles] = useState<string[]>([]);
+  const [selectedLog, setSelectedLog] = useState<string>("");
+
+  const fetchData = async (date?: string) => {
+    try {
+      const text = await api.getLogs(date);
+      const lines = text.trim().split('\n').filter(line => line.trim());
+      const logs = lines.map(line => JSON.parse(line));
+      const allRequests = logs.map((l: any, index: number) => ({
+        id: index.toString(),
+        timestamp: l.time,
+        method: l.method,
+        url: l.url,
+        ip: l.ip,
+        subdomain: l.sub,
+        status: l.status,
+      }));
+      setRequests(allRequests);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching logs:', error);
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
+    const init = async () => {
       try {
-        const text = await api.getLogs();
-        const lines = text.trim().split('\n').filter(line => line.trim());
-        const logs = lines.map(line => JSON.parse(line));
-        const allRequests = logs.map((l: any, index: number) => ({
-          id: index.toString(),
-          timestamp: l.time,
-          method: l.method,
-          url: l.url,
-          ip: l.ip,
-          subdomain: l.sub,
-          status: l.status,
-        }));
-        setRequests(allRequests);
-        setLoading(false);
+        const files = await api.getLogList();
+        setLogFiles(files);
+        if (files.length > 0) {
+          const latestFile = files[0]; // Assume sorted, take latest
+          setSelectedLog(latestFile);
+          const date = latestFile.replace('log-', '');
+          await fetchData(date);
+        }
       } catch (error) {
-        console.error('Error fetching logs:', error);
+        console.error('Error initializing:', error);
         setLoading(false);
       }
     };
-    fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
+    init();
   }, []);
+
+  useEffect(() => {
+    if (selectedLog) {
+      const date = selectedLog.replace('log-', '');
+      fetchData(date);
+    }
+  }, [selectedLog]);
 
   if (loading) {
     return <div>Loading...</div>;
@@ -68,6 +93,34 @@ export default function Requests() {
           <p className="text-sm text-muted-foreground">
             View and analyze all incoming requests
           </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <Select value={selectedLog} onValueChange={setSelectedLog}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Select log file" />
+            </SelectTrigger>
+            <SelectContent>
+              {logFiles.map((file) => (
+                <SelectItem key={file} value={file}>
+                  {file}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={async () => {
+              setUpdating(true);
+              const date = selectedLog.replace('log-', '');
+              await fetchData(date);
+              setUpdating(false);
+            }}
+            disabled={updating || !selectedLog}
+            variant="outline"
+            size="sm"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            {updating ? "Updating..." : "Update Logs"}
+          </Button>
         </div>
       </div>
 

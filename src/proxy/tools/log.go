@@ -2,7 +2,14 @@ package tools
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
+)
+
+var (
+	currentFile *os.File
+	currentDate string
 )
 
 func PrintLog(method, path, ip, host string) {
@@ -17,10 +24,31 @@ func PrintLog(method, path, ip, host string) {
 		magenta = "\033[35m"
 	)
 
-	now := time.Now().Format("02/Jan/2006:15:04:05")
+	now := time.Now()
+	dateStr := now.Format("2006-01-02")
+	timeStr := now.Format("02/Jan/2006:15:04:05")
+
+	if dateStr != currentDate {
+		if currentFile != nil {
+			currentFile.Close()
+		}
+		logPath := filepath.Join("logs", "log-"+dateStr)
+		var err error
+		currentFile, err = os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error opening log file: %v\n", err)
+			return
+		}
+		currentDate = dateStr
+	}
+
+	plainLog := fmt.Sprintf("[%s] %s -> %s (%s) %s\n", timeStr, ip, host, method, path)
+	if currentFile != nil {
+		currentFile.WriteString(plainLog)
+	}
 
 	fmt.Printf("%s[%s]%s %s%s%s -> %s%s%s (%s%s%s) %s%s%s\n",
-		gray, now, reset,
+		gray, timeStr, reset,
 		cyan, ip, reset,
 		magenta, host, reset,
 		gray, method, reset,

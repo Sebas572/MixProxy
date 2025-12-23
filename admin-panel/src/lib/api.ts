@@ -68,10 +68,24 @@ export const api = {
     return res.json();
   },
 
-  async getLogs(): Promise<string> {
-    const res = await fetch(`${API_BASE}/api/logs`);
+  async getLogs(date?: string): Promise<string> {
+    const url = date ? `${API_BASE}/api/logs?date=${date}` : `${API_BASE}/api/logs`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error('Failed to fetch logs');
     return res.text();
+  },
+
+  async getLogList(): Promise<string[]> {
+    const res = await fetch(`${API_BASE}/api/logs/list`);
+    if (!res.ok) throw new Error('Failed to fetch log list');
+    const logListSort = (await res.json()).sort((a, b) => {
+      const d1 = new Date(a.split("-").slice(1).join("/"));
+      const d2 = new Date(b.split("-").slice(1).join("/"));
+
+      return d2.getTime() - d1.getTime();
+    })
+
+    return logListSort
   },
 
   async getConfig(): Promise<Config> {

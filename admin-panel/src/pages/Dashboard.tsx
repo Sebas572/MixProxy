@@ -1,9 +1,10 @@
-import { Activity, Globe, Zap } from "lucide-react";
+import { Activity, Globe, Zap, RefreshCw } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { trafficOriginData } from "@/data/mockData";
 import { DataTable } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MethodBadge } from "@/components/ui/method-badge";
+import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { Stats, RequestLog, api } from "@/lib/api";
 
@@ -27,37 +28,37 @@ export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [requests, setRequests] = useState<RequestLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      const text = await api.getLogs();
+      const lines = text.trim().split('\n').filter(line => line.trim());
+      const logs = lines.map(line => JSON.parse(line));
+      const totalRequests = logs.length;
+      const uniqueIPs = new Set(logs.map((l: any) => l.ip)).size;
+      const now = new Date();
+      const oneMinAgo = new Date(now.getTime() - 60000);
+      const activeConnections = new Set(logs.filter((l: any) => new Date(l.time) > oneMinAgo).map((l: any) => l.ip)).size;
+      setStats({ totalRequests, activeConnections, uniqueIPs } as Stats);
+      const recentRequests = logs.slice(-5).reverse().map((l: any, index: number) => ({
+        id: index.toString(),
+        timestamp: l.time,
+        method: l.method,
+        url: l.url,
+        ip: l.ip,
+        status: l.status,
+      }));
+      setRequests(recentRequests);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching logs:', error);
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const text = await api.getLogs();
-        const lines = text.trim().split('\n').filter(line => line.trim());
-        const logs = lines.map(line => JSON.parse(line));
-        const totalRequests = logs.length;
-        const uniqueIPs = new Set(logs.map((l: any) => l.ip)).size;
-        const now = new Date();
-        const oneMinAgo = new Date(now.getTime() - 60000);
-        const activeConnections = new Set(logs.filter((l: any) => new Date(l.time) > oneMinAgo).map((l: any) => l.ip)).size;
-        setStats({ totalRequests, activeConnections, uniqueIPs } as Stats);
-        const recentRequests = logs.slice(-5).reverse().map((l: any, index: number) => ({
-          id: index.toString(),
-          timestamp: l.time,
-          method: l.method,
-          url: l.url,
-          ip: l.ip,
-          status: l.status,
-        }));
-        setRequests(recentRequests);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching logs:', error);
-        setLoading(false);
-      }
-    };
     fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
   }, []);
 
   if (loading) {
@@ -67,11 +68,27 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          Monitor your reverse proxy in real-time
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">
+            Monitor your reverse proxy in real-time
+          </p>
+        </div>
+        <Button
+          onClick={async () => {
+            setUpdating(true);
+            await fetchData();
+            setUpdating(false);
+          }}
+          disabled={updating}
+          variant="outline"
+          size="sm"
+          className="mt-2"
+        >
+          <RefreshCw className="mr-2 h-4 w-4" />
+          {updating ? "Updating..." : "Update Logs"}
+        </Button>
       </div>
 
       {/* Stats Grid */}
