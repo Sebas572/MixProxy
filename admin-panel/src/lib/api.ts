@@ -68,6 +68,12 @@ export const api = {
     return res.json();
   },
 
+  async getLogs(): Promise<string> {
+    const res = await fetch(`${API_BASE}/api/logs`);
+    if (!res.ok) throw new Error('Failed to fetch logs');
+    return res.text();
+  },
+
   async getConfig(): Promise<Config> {
     const res = await fetch(`${API_BASE}/api/config`);
     if (!res.ok) throw new Error('Failed to fetch config');

@@ -56,6 +56,16 @@ func HandleAdminAPI() {
 		AllowMethods: "GET,POST,PUT,OPTIONS",
 		AllowHeaders: "Content-Type",
 	}))
+
+	api.Get("/logs", func(c *fiber.Ctx) error {
+		data, err := os.ReadFile("./logs/requests.log")
+		if err != nil {
+			return c.Status(500).SendString("Error reading log file")
+		}
+		c.Set("Content-Type", "text/plain")
+		return c.SendString(string(data))
+	})
+
 	api.Use(adminApiMiddleware)
 
 	api.Get("/start", func(c *fiber.Ctx) error {

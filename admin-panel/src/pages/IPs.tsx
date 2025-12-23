@@ -2,8 +2,8 @@ import { Search, Shield, AlertTriangle } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
-import { api, IPStat } from "@/lib/api";
+import { useState, useEffect } from "react";
+import { IPStat, api } from "@/lib/api";
 
 const columns = [
   {
@@ -40,18 +40,40 @@ const columns = [
 ];
 
 export default function IPs() {
-  const { data: ips, isLoading, error } = useQuery({
-    queryKey: ['ips'],
-    queryFn: api.getIPs,
-    refetchInterval: 5000,
-  });
+  const [ips, setIps] = useState<IPStat[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (isLoading) {
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const text = await api.getLogs();
+        const lines = text.trim().split('\n').filter(line => line.trim());
+        const logs = lines.map(line => JSON.parse(line));
+        const ipMap = new Map<string, {ip: string, count: number, lastSeen: string}>();
+        logs.forEach((l: any) => {
+          if (!ipMap.has(l.ip)) {
+            ipMap.set(l.ip, {ip: l.ip, count: 0, lastSeen: l.time});
+          }
+          const entry = ipMap.get(l.ip)!;
+          entry.count++;
+          if (new Date(l.time) > new Date(entry.lastSeen)) {
+            entry.lastSeen = l.time;
+          }
+        });
+        setIps(Array.from(ipMap.values()));
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching logs:', error);
+        setLoading(false);
+      }
+    };
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) {
     return <div>Loading...</div>;
-  }
-
-  if (error) {
-    return <div>Error loading IPs: {error.message}</div>;
   }
 
   return (
@@ -68,7 +90,7 @@ export default function IPs() {
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="text-sm text-muted-foreground">Total IPs</p>
-          <p className="text-2xl font-bold text-foreground">{(ips || []).length.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-foreground">{ips.length.toLocaleString()}</p>
         </div>
         {/* Coming soon */}
         {/* <div className="rounded-xl border border-success/30 bg-success/10 p-4">
@@ -91,7 +113,7 @@ export default function IPs() {
       </div>
 
       {/* Table */}
-      <DataTable data={(ips || []) as any[]} columns={columns} />
+      <DataTable data={ips as any[]} columns={columns} />
     </div>
   );
 }

@@ -4,8 +4,8 @@ import { trafficOriginData } from "@/data/mockData";
 import { DataTable } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MethodBadge } from "@/components/ui/method-badge";
-import { useQuery } from "@tanstack/react-query";
-import { api, Stats, RequestLog } from "@/lib/api";
+import { useState, useEffect } from "react";
+import { Stats, RequestLog, api } from "@/lib/api";
 
 const recentRequestsColumns = [
   { key: "timestamp", header: "Time", className: "text-muted-foreground" },
@@ -24,19 +24,43 @@ const recentRequestsColumns = [
 ];
 
 export default function Dashboard() {
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['stats'],
-    queryFn: api.getStats,
-    refetchInterval: 5000, // Refresh every 5 seconds
-  });
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [requests, setRequests] = useState<RequestLog[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const { data: requests, isLoading: requestsLoading } = useQuery({
-    queryKey: ['requests'],
-    queryFn: api.getRequests,
-    refetchInterval: 5000,
-  });
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const text = await api.getLogs();
+        const lines = text.trim().split('\n').filter(line => line.trim());
+        const logs = lines.map(line => JSON.parse(line));
+        const totalRequests = logs.length;
+        const uniqueIPs = new Set(logs.map((l: any) => l.ip)).size;
+        const now = new Date();
+        const oneMinAgo = new Date(now.getTime() - 60000);
+        const activeConnections = new Set(logs.filter((l: any) => new Date(l.time) > oneMinAgo).map((l: any) => l.ip)).size;
+        setStats({ totalRequests, activeConnections, uniqueIPs } as Stats);
+        const recentRequests = logs.slice(-5).reverse().map((l: any, index: number) => ({
+          id: index.toString(),
+          timestamp: l.time,
+          method: l.method,
+          url: l.url,
+          ip: l.ip,
+          status: l.status,
+        }));
+        setRequests(recentRequests);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching logs:', error);
+        setLoading(false);
+      }
+    };
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
-  if (statsLoading || requestsLoading) {
+  if (loading) {
     return <div>Loading...</div>;
   }
 
@@ -75,7 +99,7 @@ export default function Dashboard() {
       {/* Recent Requests */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-foreground">Recent Requests</h2>
-        <DataTable data={(requests || []).slice(0, 5) as any[]} columns={recentRequestsColumns} />
+        <DataTable data={requests as any[]} columns={recentRequestsColumns} />
       </div>
     </div>
   );
