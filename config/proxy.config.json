@@ -1,6 +1,8 @@
 {
   "hostname": "developer.space",
   "subdomain_admin_panel": "admin",
+  "admin_username": "admin",
+  "admin_password": "password",
   "on_https": true,
   "mode_developer": true,
   "load_balancer": [],

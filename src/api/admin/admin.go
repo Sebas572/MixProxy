@@ -13,6 +13,15 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
+type ConfigResponse struct {
+	Hostname            string                     `json:"hostname"`
+	SubdomainAdminPanel string                     `json:"subdomain_admin_panel"`
+	OnHTTPS             bool                       `json:"on_https"`
+	ModeDeveloper       bool                       `json:"mode_developer"`
+	LoadBalancer        []config.LoadBalancerEntry `json:"load_balancer"`
+	RootLoadBalancer    *config.LoadBalancerEntry  `json:"root_load_balancer,omitempty"`
+}
+
 var controlFunc func(string)
 var cfg *config.Config
 
@@ -141,7 +150,15 @@ func HandleAdminAPI() {
 
 	api.Get("/config", func(c *fiber.Ctx) error {
 		cfg, _ = config.ReadConfig()
-		return c.JSON(cfg)
+		response := ConfigResponse{
+			Hostname:            cfg.Hostname,
+			SubdomainAdminPanel: cfg.SubdomainAdminPanel,
+			OnHTTPS:             cfg.OnHTTPS,
+			ModeDeveloper:       cfg.ModeDeveloper,
+			LoadBalancer:        cfg.LoadBalancer,
+			RootLoadBalancer:    cfg.RootLoadBalancer,
+		}
+		return c.JSON(response)
 	})
 
 	api.Put("/config", func(c *fiber.Ctx) error {

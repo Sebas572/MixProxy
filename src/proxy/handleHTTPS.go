@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"log"
 	"mixproxy/src/logger"
+	"mixproxy/src/proxy/config"
 	"mixproxy/src/redis"
 	"strings"
 	"time"
@@ -64,7 +65,7 @@ func handleHTTPS(c *fiber.Ctx) error {
 		}
 		creds := string(decoded)
 		parts := strings.SplitN(creds, ":", 2)
-		if len(parts) != 2 || parts[0] != "admin" || parts[1] != "password" {
+		if len(parts) != 2 || parts[0] != config.AdminUsername || parts[1] != config.AdminPassword {
 			c.Status(401)
 			return c.SendString("Unauthorized")
 		}

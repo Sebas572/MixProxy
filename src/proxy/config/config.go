@@ -14,6 +14,8 @@ import (
 type Config struct {
 	Hostname            string              `json:"hostname"`
 	SubdomainAdminPanel string              `json:"subdomain_admin_panel"`
+	AdminUsername       string              `json:"admin_username"`
+	AdminPassword       string              `json:"admin_password"`
 	OnHTTPS             bool                `json:"on_https"`
 	ModeDeveloper       bool                `json:"mode_developer"`
 	LoadBalancer        []LoadBalancerEntry `json:"load_balancer"`
@@ -44,6 +46,8 @@ var SERVERS map[string]*fiber.App = map[string]*fiber.App{
 var Proxies map[string][]string = make(map[string][]string)
 var URL_ADMIN_PANEL string = "http://admin:4173"
 var CONFIG_PATH string = filepath.Join(".", "config", "proxy.config.json")
+var AdminUsername string
+var AdminPassword string
 
 func AllValuesNonEmpty(entry *LoadBalancerEntry) bool {
 	return entry.Type != "" && len(entry.VPS) != 0

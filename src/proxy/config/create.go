@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-var TEXT_FILE_CONFIG string = "{\n\t\"hostname\": \"%s\",\n\t\"subdomain_admin_panel\": \"%s\",\n\t\"on_https\": %s,\n\t\"mode_developer\": %s,\n\t\"load_balancer\": [],\n\t\"root_load_balancer\": {}\n}"
+var TEXT_FILE_CONFIG string = "{\n\t\"hostname\": \"%s\",\n\t\"subdomain_admin_panel\": \"%s\",\n\t\"admin_username\": \"%s\",\n\t\"admin_password\": \"%s\",\n\t\"on_https\": %s,\n\t\"mode_developer\": %s,\n\t\"load_balancer\": [],\n\t\"root_load_balancer\": {}\n}"
 
 func input(ask, defaultValue string) string {
 	fmt.Printf("%s (default: %s): ", ask, defaultValue)
@@ -23,10 +23,12 @@ func CreateConfig() {
 
 	hostname := input("Enter hostname", "developer.space")
 	subdomain_admin_panel := input("Enter subdomain admin panel", "admin")
+	admin_username := input("Enter admin username", "admin")
+	admin_password := input("Enter admin password", "password")
 	on_https := input("On HTTPS? (true/false)", "true")
 	mode_developer := input("Mode developer? (true/false)", "true")
 
-	text := []byte(fmt.Sprintf(TEXT_FILE_CONFIG, hostname, subdomain_admin_panel, on_https, mode_developer))
+	text := []byte(fmt.Sprintf(TEXT_FILE_CONFIG, hostname, subdomain_admin_panel, admin_username, admin_password, on_https, mode_developer))
 
 	if err := os.WriteFile(CONFIG_PATH, text, 0644); err != nil {
 		fmt.Println("Error to create proxy.config.json")

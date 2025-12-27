@@ -18,6 +18,8 @@ func reloadConfig() {
 	tools.ServerSelected = make(map[string]*tools.ServerEntry)
 
 	cfg, _ := config.ReadConfig()
+	config.AdminUsername = cfg.AdminUsername
+	config.AdminPassword = cfg.AdminPassword
 	redis.Clean()
 
 	if err := config.ValidateConfig(cfg); err != nil {
