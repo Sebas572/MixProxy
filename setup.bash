@@ -4,7 +4,7 @@ cd MixProxy
 
 wget https://github.com/Sebas572/MixProxy/releases/download/v0.0.2-experimental/mixproxy-linux-amd64
 
-rm -r .config
+rm -r config
 
 ./mixproxy-linux-amd64
 
