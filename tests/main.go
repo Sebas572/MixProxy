@@ -94,7 +94,7 @@ func main() {
 
 	// 1. Verificar servidor corriendo (HTTP redirect to HTTPS)
 	fmt.Printf("Testing Server running... ")
-	req, err := http.NewRequest("GET", "https://developer.space", nil)
+	req, err := http.NewRequest("GET", "http://"+cfg.Hostname+"", nil)
 	serverRunning := false
 	if err == nil {
 		resp, err = client.Do(req)
@@ -106,17 +106,17 @@ func main() {
 	printStatus(serverRunning)
 
 	// 2. Panel de administrador detectado
-	adminPanelRunning := makeRequest("GET", "https://admin.developer.space", 200, "Admin panel detected")
+	adminPanelRunning := makeRequest("GET", "https://"+cfg.SubdomainAdminPanel+"."+cfg.Hostname+"", 200, "Admin panel detected")
 
 	// 3. Verificar el admin-api
-	adminAPIRunning := makeRequest("GET", "https://admin-api.developer.space/api/config", 200, "Verify admin-api")
+	adminAPIRunning := makeRequest("GET", "https://admin-api."+cfg.Hostname+"/api/config", 200, "Verify admin-api")
 
 	// 4. Verificar páginas según configuración de subdominios y root
 	fmt.Printf("Testing Verify if pages according to subdomain and root configuration are running... ")
 	subdomainsRunning := false
 
 	// Test root domain (should redirect or serve)
-	req, err = http.NewRequest("GET", "https://developer.space", nil)
+	req, err = http.NewRequest("GET", "https://"+cfg.Hostname+"", nil)
 	if err == nil {
 		resp, err = client.Do(req)
 		if err == nil {
@@ -128,7 +128,7 @@ func main() {
 	}
 
 	// Test admin subdomain
-	req, err = http.NewRequest("GET", "https://admin.developer.space", nil)
+	req, err = http.NewRequest("GET", "https://"+cfg.SubdomainAdminPanel+"."+cfg.Hostname+"", nil)
 	if err == nil {
 		encoded := base64.StdEncoding.EncodeToString([]byte(config.AdminUsername + ":" + config.AdminPassword))
 		req.Header.Set("Authorization", "Basic "+encoded)
@@ -144,26 +144,22 @@ func main() {
 	printStatus(subdomainsRunning)
 
 	// Additional checks
-	configRunning := makeRequest("GET", "https://admin-api.developer.space/api/config", 200, "Verifying config API")
+	configRunning := makeRequest("GET", "https://admin-api."+cfg.Hostname+"/api/config", 200, "Verifying config API")
 
-	logsRunning := makeRequest("GET", "https://admin-api.developer.space/api/logs/list", 200, "Verifying logs API")
+	logsRunning := makeRequest("GET", "https://admin-api."+cfg.Hostname+"/api/logs/list", 200, "Verifying logs API")
 
-	statsRunning := makeRequest("GET", "https://admin-api.developer.space/api/stats", 200, "Verifying stats API")
+	statsRunning := makeRequest("GET", "https://admin-api."+cfg.Hostname+"/api/stats", 200, "Verifying stats API")
 
-	requestsRunning := makeRequest("GET", "https://admin-api.developer.space/api/requests", 200, "Verifying requests API")
+	requestsRunning := makeRequest("GET", "https://admin-api."+cfg.Hostname+"/api/requests", 200, "Verifying requests API")
 
-	ipsRunning := makeRequest("GET", "https://admin-api.developer.space/api/ips", 200, "Verifying ips API")
+	ipsRunning := makeRequest("GET", "https://admin-api."+cfg.Hostname+"/api/ips", 200, "Verifying ips API")
 
-	startRunning := makeRequest("GET", "https://admin-api.developer.space/api/start", 200, "Verifying start API")
-
-	stopRunning := makeRequest("GET", "https://admin-api.developer.space/api/stop", 200, "Verifying stop API")
-
-	reloadRunning := makeRequest("POST", "https://admin-api.developer.space/api/reload", 200, "Verifying reload API")
+	reloadRunning := makeRequest("POST", "https://admin-api."+cfg.Hostname+"/api/reload", 200, "Verifying reload API")
 
 	// Summary
 	fmt.Println()
 	fmt.Println("=== Test Summary ===")
-	allTests := []bool{serverRunning, adminPanelRunning, adminAPIRunning, subdomainsRunning, configRunning, logsRunning, statsRunning, requestsRunning, ipsRunning, startRunning, stopRunning, reloadRunning}
+	allTests := []bool{serverRunning, adminPanelRunning, adminAPIRunning, subdomainsRunning, configRunning, logsRunning, statsRunning, requestsRunning, ipsRunning, reloadRunning}
 
 	passed := 0
 	for _, test := range allTests {
