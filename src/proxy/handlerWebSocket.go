@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"crypto/tls"
-	"fmt"
 	"log"
 	"mixproxy/src/proxy/config"
 	"mixproxy/src/proxy/tools"
@@ -21,10 +20,8 @@ func getSubdomainFromWebSocket(ctx *websocket.Conn) string {
 
 func getHandleFuncFromWebSocket(ctx *websocket.Conn) (string, error) {
 	subdomain := getSubdomainFromWebSocket(ctx)
-	fmt.Println(subdomain)
 
 	target, err := tools.GetTargetIPForSubdomain(subdomain)
-	fmt.Println(target)
 	if err != nil {
 		return config.URL_ADMIN_PANEL, err
 	}
@@ -37,7 +34,6 @@ func getHandleFuncFromWebSocket(ctx *websocket.Conn) (string, error) {
 
 // Nueva función para manejar WebSockets
 func handleWebSocket(c *websocket.Conn) {
-	fmt.Println("SI ES UN WEBSOCKET")
 	defer c.Close()
 
 	url, err := getHandleFuncFromWebSocket(c)

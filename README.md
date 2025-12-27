@@ -85,6 +85,7 @@ The proxy supports both root domain and subdomain-based routing, with configurab
 - **Go**: Core proxy logic and server implementation
 - **HTTP/1.1**: support
 - **HTTP/2**: Coming soon support
+- **WebSockets**: support
 
 ### FrontEnd (Admin Panel)
 - **React**: User interface framework
