@@ -12,7 +12,7 @@ import (
 
 var cfg *config.Config
 
-func init() {
+func InitStartConfig() {
 	config, err := config.ReadConfig()
 	if err != nil {
 		log.Println("Not found config")

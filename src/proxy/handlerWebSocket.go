@@ -3,7 +3,6 @@ package proxy
 import (
 	"crypto/tls"
 	"log"
-	"mixproxy/src/proxy/config"
 	"mixproxy/src/proxy/tools"
 	"strings"
 
@@ -13,7 +12,13 @@ import (
 
 func getSubdomainFromWebSocket(ctx *websocket.Conn) string {
 	origin := ctx.Headers("Origin")
-	subdomain := strings.Split(strings.Split(origin, "://")[1], ".")[0]
+	originSplit := strings.Split(origin, "://")[1]
+
+	if originSplit == cfg.Hostname {
+		return ""
+	}
+
+	subdomain := strings.Split(strings.Split(origin, "://")[1], "."+cfg.Hostname)[0]
 
 	return subdomain
 }
@@ -23,7 +28,7 @@ func getHandleFuncFromWebSocket(ctx *websocket.Conn) (string, error) {
 
 	target, err := tools.GetTargetIPForSubdomain(subdomain)
 	if err != nil {
-		return config.URL_ADMIN_PANEL, err
+		return "", err
 	}
 
 	target = strings.Replace(target, "http://", "ws://", 1)

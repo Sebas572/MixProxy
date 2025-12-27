@@ -25,6 +25,8 @@ func main() {
 			os.Exit(0)
 		}
 
+		proxy.InitStartConfig()
+
 		if len(os.Args) >= 2 {
 			if os.Args[1] == "--start-proxy" {
 				proxy.Control("start")
