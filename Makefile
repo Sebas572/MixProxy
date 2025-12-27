@@ -14,7 +14,7 @@ windows:
 linux:
 	@echo "Building for Linux..."
 	@mkdir -p $(BIN_DIR)
-	GOOS=linux GOARCH=amd64 go build -o $(BIN_DIR)/mixproxy -ldflags="-s -w" main.go
+	GOOS=linux GOARCH=amd64 go build -o $(BIN_DIR)/mixproxy-linux-amd64 -ldflags="-s -w" main.go
 
 clean:
 	@echo "Cleaning bin directory..."
