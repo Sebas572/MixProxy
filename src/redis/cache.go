@@ -10,6 +10,8 @@ import (
 
 var ctx = context.Background()
 var rdb *rd.Client
+var rdbWhitelist *rd.Client
+var rdbBlacklist *rd.Client
 
 type CachedResponse struct {
 	Status  int               `json:"status"`
@@ -22,6 +24,18 @@ func init() {
 		Addr:     "redis:6379",
 		Password: "mixproxy123",
 		DB:       0,
+	})
+
+	rdbWhitelist = rd.NewClient(&rd.Options{
+		Addr:     "redis:6379",
+		Password: "mixproxy123",
+		DB:       1,
+	})
+
+	rdbBlacklist = rd.NewClient(&rd.Options{
+		Addr:     "redis:6379",
+		Password: "mixproxy123",
+		DB:       2,
 	})
 }
 

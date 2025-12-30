@@ -21,6 +21,21 @@ func handleHTTPS(c *fiber.Ctx) error {
 
 	subdomain, host := getSubdomainAndHost(c)
 
+	if isEnabled, _ := redis.IsEnabledWhitelistForSubdomain(subdomain); isEnabled {
+		_, err := redis.GetIPForWhitelist(subdomain, c.IP())
+
+		if err != nil {
+			return c.SendString("You are not on the whitelist")
+		}
+	}
+
+	if isEnabled, _ := redis.IsEnabledBlacklistForSubdomain(subdomain); isEnabled {
+		reason, err := redis.GetIPForBlacklist(subdomain, c.IP())
+		if err == nil {
+			return c.SendString("You are on the blacklist\n" + reason.Content)
+		}
+	}
+
 	if c.Method() == "GET" {
 		// Check cache for non-admin GET requests
 		key := generateCacheKey(c)
