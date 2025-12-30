@@ -38,6 +38,14 @@ export interface LoadBalancerEntry {
   active: boolean;
   cache_enabled: boolean;
   cache_paths: string[];
+  whitelist_enabled: boolean;
+  blacklist_enabled: boolean;
+}
+
+export interface Reason {
+  Content: string;
+  Time: string;
+  Date: string;
 }
 
 export interface Config {
@@ -108,5 +116,91 @@ export const api = {
   async reload(): Promise<void> {
     const res = await fetch(`${API_BASE}/api/reload`, { method: 'POST' });
     if (!res.ok) throw new Error('Failed to reload');
+  },
+
+  // Whitelist
+  async getWhitelistEnabled(subdomain: string): Promise<boolean> {
+    const res = await fetch(`${API_BASE}/api/whitelist/enabled/${subdomain}`);
+    if (!res.ok) throw new Error('Failed to get whitelist enabled');
+    const data = await res.json();
+    return data.enabled;
+  },
+
+  async setWhitelistEnabled(subdomain: string, enabled: boolean): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/whitelist/enabled/${subdomain}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    if (!res.ok) throw new Error('Failed to set whitelist enabled');
+  },
+
+  async getEnabledWhitelists(): Promise<string[]> {
+    const res = await fetch(`${API_BASE}/api/whitelist/enabled`);
+    if (!res.ok) throw new Error('Failed to get enabled whitelists');
+    return res.json();
+  },
+
+  async getWhitelistIPs(subdomain: string): Promise<Record<string, Reason>> {
+    const res = await fetch(`${API_BASE}/api/whitelist/ips/${subdomain}`);
+    if (!res.ok) throw new Error('Failed to get whitelist IPs');
+    return res.json();
+  },
+
+  async addWhitelistIP(subdomain: string, ip: string, reason: Reason, duration: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/whitelist/ip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subdomain, ip, reason, duration }),
+    });
+    if (!res.ok) throw new Error('Failed to add whitelist IP');
+  },
+
+  async removeWhitelistIP(subdomain: string, ip: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/whitelist/ip/${subdomain}/${ip}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to remove whitelist IP');
+  },
+
+  async getEnabledBlacklists(): Promise<string[]> {
+    const res = await fetch(`${API_BASE}/api/blacklist/enabled`);
+    if (!res.ok) throw new Error('Failed to get enabled blacklists');
+    return res.json();
+  },
+
+  // Blacklist
+  async getBlacklistEnabled(subdomain: string): Promise<boolean> {
+    const res = await fetch(`${API_BASE}/api/blacklist/enabled/${subdomain}`);
+    if (!res.ok) throw new Error('Failed to get blacklist enabled');
+    const data = await res.json();
+    return data.enabled;
+  },
+
+  async setBlacklistEnabled(subdomain: string, enabled: boolean): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/blacklist/enabled/${subdomain}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    if (!res.ok) throw new Error('Failed to set blacklist enabled');
+  },
+
+  async getBlacklistIPs(subdomain: string): Promise<Record<string, Reason>> {
+    const res = await fetch(`${API_BASE}/api/blacklist/ips/${subdomain}`);
+    if (!res.ok) throw new Error('Failed to get blacklist IPs');
+    return res.json();
+  },
+
+  async addBlacklistIP(subdomain: string, ip: string, reason: Reason, duration: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/blacklist/ip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subdomain, ip, reason, duration }),
+    });
+    if (!res.ok) throw new Error('Failed to add blacklist IP');
+  },
+
+  async removeBlacklistIP(subdomain: string, ip: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/blacklist/ip/${subdomain}/${ip}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to remove blacklist IP');
   },
 };

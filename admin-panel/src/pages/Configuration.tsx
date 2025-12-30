@@ -26,6 +26,22 @@ export default function Configuration() {
     }
   }, [config, formData]);
 
+  React.useEffect(() => {
+    if (config) {
+      const subs = config.load_balancer.map(lb => lb.subdomain).filter(Boolean);
+      subs.forEach(async (sub) => {
+        try {
+          const wl = await api.getWhitelistEnabled(sub);
+          const bl = await api.getBlacklistEnabled(sub);
+          setWhitelistEnabledState(prev => ({ ...prev, [sub]: wl }));
+          setBlacklistEnabledState(prev => ({ ...prev, [sub]: bl }));
+        } catch (e) {
+          console.error(e);
+        }
+      });
+    }
+  }, [config]);
+
   const updateConfigMutation = useMutation({
     mutationFn: api.updateConfig,
     onSuccess: () => {
@@ -58,6 +74,49 @@ export default function Configuration() {
         title: "Error",
         description: "Failed to initiate reset.",
         variant: "destructive",
+      });
+    },
+  });
+
+  const [whitelistEnabled, setWhitelistEnabledState] = useState<Record<string, boolean>>({});
+  const [blacklistEnabled, setBlacklistEnabledState] = useState<Record<string, boolean>>({});
+
+  const setWhitelistEnabledMutation = useMutation({
+    mutationFn: ({ subdomain, enabled }: { subdomain: string, enabled: boolean }) => api.setWhitelistEnabled(subdomain, enabled),
+    onSuccess: (_, { subdomain, enabled }) => {
+      setWhitelistEnabledState(prev => ({ ...prev, [subdomain]: enabled }));
+      if (enabled) {
+        setBlacklistEnabledState(prev => ({ ...prev, [subdomain]: false }));
+      }
+      setFormData(prev => {
+        if (!prev) return null;
+        const newLB = prev.load_balancer.map(lb => {
+          if (lb.subdomain === subdomain) {
+            return { ...lb, whitelist_enabled: enabled, blacklist_enabled: enabled ? false : lb.blacklist_enabled };
+          }
+          return lb;
+        });
+        return { ...prev, load_balancer: newLB };
+      });
+    },
+  });
+
+  const setBlacklistEnabledMutation = useMutation({
+    mutationFn: ({ subdomain, enabled }: { subdomain: string, enabled: boolean }) => api.setBlacklistEnabled(subdomain, enabled),
+    onSuccess: (_, { subdomain, enabled }) => {
+      setBlacklistEnabledState(prev => ({ ...prev, [subdomain]: enabled }));
+      if (enabled) {
+        setWhitelistEnabledState(prev => ({ ...prev, [subdomain]: false }));
+      }
+      setFormData(prev => {
+        if (!prev) return null;
+        const newLB = prev.load_balancer.map(lb => {
+          if (lb.subdomain === subdomain) {
+            return { ...lb, blacklist_enabled: enabled, whitelist_enabled: enabled ? false : lb.whitelist_enabled };
+          }
+          return lb;
+        });
+        return { ...prev, load_balancer: newLB };
       });
     },
   });
@@ -291,6 +350,8 @@ export default function Configuration() {
         active: true,
         cache_enabled: false,
         cache_paths: [],
+        whitelist_enabled: false,
+        blacklist_enabled: false,
         vps: [{ ip: "", capacity: 1, active: true }]
       });
       return { ...prev, load_balancer: newLB };
@@ -376,7 +437,7 @@ export default function Configuration() {
   const addRootLoadBalancer = () => {
     setFormData(prev => {
       if (!prev) return null;
-      return { ...prev, root_load_balancer: { vps: [{ ip: "", capacity: 1, active: true }], type: "https", active: true, cache_enabled: false, cache_paths: [] } };
+      return { ...prev, root_load_balancer: { vps: [{ ip: "", capacity: 1, active: true }], type: "https", active: true, cache_enabled: false, cache_paths: [], whitelist_enabled: false, blacklist_enabled: false } };
     });
   };
 
@@ -610,7 +671,7 @@ export default function Configuration() {
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-5">
                 <div className="space-y-2">
                   <Label>Subdomain</Label>
                   <Input
@@ -620,18 +681,42 @@ export default function Configuration() {
                     className="bg-secondary border-border font-mono"
                   />
                 </div>
-                <div className="center-switch h-24">
-                  <Label>HTTPS Enabled</Label>
+                <div className="center-switch">
+                  <Label>HTTPS</Label>
                   <Switch
                     checked={lb.type === "https"}
                     onCheckedChange={(checked) => updateLoadBalancer(i, 'type', checked ? "https" : "http")}
                   />
                 </div>
-                <div className="center-switch h-24">
+                <div className="center-switch">
                   <Label>Active</Label>
                   <Switch
                     checked={lb.active}
                     onCheckedChange={(checked) => updateLoadBalancer(i, 'active', checked)}
+                  />
+                </div>
+                <div className="center-switch">
+                  <Label>Whitelist</Label>
+                  <Switch
+                    checked={whitelistEnabled[lb.subdomain] || false}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setBlacklistEnabledMutation.mutate({ subdomain: lb.subdomain, enabled: false });
+                      }
+                      setWhitelistEnabledMutation.mutate({ subdomain: lb.subdomain, enabled: checked });
+                    }}
+                  />
+                </div>
+                <div className="center-switch">
+                  <Label>Blacklist</Label>
+                  <Switch
+                    checked={blacklistEnabled[lb.subdomain] || false}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setWhitelistEnabledMutation.mutate({ subdomain: lb.subdomain, enabled: false });
+                      }
+                      setBlacklistEnabledMutation.mutate({ subdomain: lb.subdomain, enabled: checked });
+                    }}
                   />
                 </div>
               </div>
