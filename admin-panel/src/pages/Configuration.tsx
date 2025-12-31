@@ -26,21 +26,6 @@ export default function Configuration() {
     }
   }, [config, formData]);
 
-  React.useEffect(() => {
-    if (config) {
-      const subs = config.load_balancer.map(lb => lb.subdomain).filter(Boolean);
-      subs.forEach(async (sub) => {
-        try {
-          const wl = await api.getWhitelistEnabled(sub);
-          const bl = await api.getBlacklistEnabled(sub);
-          setWhitelistEnabledState(prev => ({ ...prev, [sub]: wl }));
-          setBlacklistEnabledState(prev => ({ ...prev, [sub]: bl }));
-        } catch (e) {
-          console.error(e);
-        }
-      });
-    }
-  }, [config]);
 
   const updateConfigMutation = useMutation({
     mutationFn: api.updateConfig,
@@ -78,48 +63,21 @@ export default function Configuration() {
     },
   });
 
-  const [whitelistEnabled, setWhitelistEnabledState] = useState<Record<string, boolean>>({});
-  const [blacklistEnabled, setBlacklistEnabledState] = useState<Record<string, boolean>>({});
 
   const setWhitelistEnabledMutation = useMutation({
     mutationFn: ({ subdomain, enabled }: { subdomain: string, enabled: boolean }) => api.setWhitelistEnabled(subdomain, enabled),
-    onSuccess: (_, { subdomain, enabled }) => {
-      setWhitelistEnabledState(prev => ({ ...prev, [subdomain]: enabled }));
-      if (enabled) {
-        setBlacklistEnabledState(prev => ({ ...prev, [subdomain]: false }));
-      }
-      setFormData(prev => {
-        if (!prev) return null;
-        const newLB = prev.load_balancer.map(lb => {
-          if (lb.subdomain === subdomain) {
-            return { ...lb, whitelist_enabled: enabled, blacklist_enabled: enabled ? false : lb.blacklist_enabled };
-          }
-          return lb;
-        });
-        return { ...prev, load_balancer: newLB };
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['enabled-whitelists'] });
     },
   });
 
   const setBlacklistEnabledMutation = useMutation({
     mutationFn: ({ subdomain, enabled }: { subdomain: string, enabled: boolean }) => api.setBlacklistEnabled(subdomain, enabled),
-    onSuccess: (_, { subdomain, enabled }) => {
-      setBlacklistEnabledState(prev => ({ ...prev, [subdomain]: enabled }));
-      if (enabled) {
-        setWhitelistEnabledState(prev => ({ ...prev, [subdomain]: false }));
-      }
-      setFormData(prev => {
-        if (!prev) return null;
-        const newLB = prev.load_balancer.map(lb => {
-          if (lb.subdomain === subdomain) {
-            return { ...lb, blacklist_enabled: enabled, whitelist_enabled: enabled ? false : lb.whitelist_enabled };
-          }
-          return lb;
-        });
-        return { ...prev, load_balancer: newLB };
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['enabled-blacklists'] });
     },
   });
+
 
   const validateConfig = (cfg: Config): string[] => {
     const errors: string[] = [];
@@ -557,7 +515,7 @@ export default function Configuration() {
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-4">
               <div className="center-switch">
                 <Label>HTTPS Enabled</Label>
                 <Switch
@@ -570,6 +528,38 @@ export default function Configuration() {
                 <Switch
                   checked={formData.root_load_balancer.active}
                   onCheckedChange={(checked) => updateRootLB('active', checked)}
+                />
+              </div>
+              <div className="center-switch">
+                <Label>Whitelist</Label>
+                <Switch
+                  checked={formData?.root_load_balancer?.whitelist_enabled || false}
+                  onCheckedChange={(checked) => {
+                    setFormData(prev => {
+                      if (!prev || !prev.root_load_balancer) return prev;
+                      return { ...prev, root_load_balancer: { ...prev.root_load_balancer, whitelist_enabled: checked, blacklist_enabled: checked ? false : prev.root_load_balancer.blacklist_enabled } };
+                    });
+                    if (checked) {
+                      setBlacklistEnabledMutation.mutate({ subdomain: "", enabled: false });
+                    }
+                    setWhitelistEnabledMutation.mutate({ subdomain: "", enabled: checked });
+                  }}
+                />
+              </div>
+              <div className="center-switch">
+                <Label>Blacklist</Label>
+                <Switch
+                  checked={formData?.root_load_balancer?.blacklist_enabled || false}
+                  onCheckedChange={(checked) => {
+                    setFormData(prev => {
+                      if (!prev || !prev.root_load_balancer) return prev;
+                      return { ...prev, root_load_balancer: { ...prev.root_load_balancer, blacklist_enabled: checked, whitelist_enabled: checked ? false : prev.root_load_balancer.whitelist_enabled } };
+                    });
+                    if (checked) {
+                      setWhitelistEnabledMutation.mutate({ subdomain: "", enabled: false });
+                    }
+                    setBlacklistEnabledMutation.mutate({ subdomain: "", enabled: checked });
+                  }}
                 />
               </div>
             </div>
@@ -698,8 +688,18 @@ export default function Configuration() {
                 <div className="center-switch">
                   <Label>Whitelist</Label>
                   <Switch
-                    checked={whitelistEnabled[lb.subdomain] || false}
+                    checked={lb.whitelist_enabled}
                     onCheckedChange={(checked) => {
+                      setFormData(prev => {
+                        if (!prev) return null;
+                        const newLB = prev.load_balancer.map(lbItem => {
+                          if (lbItem.subdomain === lb.subdomain) {
+                            return { ...lbItem, whitelist_enabled: checked, blacklist_enabled: checked ? false : lbItem.blacklist_enabled };
+                          }
+                          return lbItem;
+                        });
+                        return { ...prev, load_balancer: newLB };
+                      });
                       if (checked) {
                         setBlacklistEnabledMutation.mutate({ subdomain: lb.subdomain, enabled: false });
                       }
@@ -710,8 +710,18 @@ export default function Configuration() {
                 <div className="center-switch">
                   <Label>Blacklist</Label>
                   <Switch
-                    checked={blacklistEnabled[lb.subdomain] || false}
+                    checked={lb.blacklist_enabled}
                     onCheckedChange={(checked) => {
+                      setFormData(prev => {
+                        if (!prev) return null;
+                        const newLB = prev.load_balancer.map(lbItem => {
+                          if (lbItem.subdomain === lb.subdomain) {
+                            return { ...lbItem, blacklist_enabled: checked, whitelist_enabled: checked ? false : lbItem.whitelist_enabled };
+                          }
+                          return lbItem;
+                        });
+                        return { ...prev, load_balancer: newLB };
+                      });
                       if (checked) {
                         setWhitelistEnabledMutation.mutate({ subdomain: lb.subdomain, enabled: false });
                       }

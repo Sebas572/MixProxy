@@ -203,4 +203,78 @@ export const api = {
     const res = await fetch(`${API_BASE}/api/blacklist/ip/${subdomain}/${ip}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to remove blacklist IP');
   },
+
+  // Root Whitelist
+  async getWhitelistEnabledRoot(): Promise<boolean> {
+    const res = await fetch(`${API_BASE}/api/whitelist/enabled/`);
+    if (!res.ok) throw new Error('Failed to get root whitelist enabled');
+    const data = await res.json();
+    return data.enabled;
+  },
+
+  async setWhitelistEnabledRoot(enabled: boolean): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/whitelist/enabled/`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    if (!res.ok) throw new Error('Failed to set root whitelist enabled');
+  },
+
+  async getWhitelistIPsRoot(): Promise<Record<string, Reason>> {
+    const res = await fetch(`${API_BASE}/api/whitelist/ips/`);
+    if (!res.ok) throw new Error('Failed to get root whitelist IPs');
+    return res.json();
+  },
+
+  async addWhitelistIPRoot(ip: string, reason: Reason, duration: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/whitelist/ip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subdomain: "", ip, reason, duration }),
+    });
+    if (!res.ok) throw new Error('Failed to add root whitelist IP');
+  },
+
+  async removeWhitelistIPRoot(ip: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/whitelist/root/ip/remove/${ip}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to remove root whitelist IP');
+  },
+
+  // Root Blacklist
+  async getBlacklistEnabledRoot(): Promise<boolean> {
+    const res = await fetch(`${API_BASE}/api/blacklist/enabled/`);
+    if (!res.ok) throw new Error('Failed to get root blacklist enabled');
+    const data = await res.json();
+    return data.enabled;
+  },
+
+  async setBlacklistEnabledRoot(enabled: boolean): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/blacklist/enabled/`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    if (!res.ok) throw new Error('Failed to set root blacklist enabled');
+  },
+
+  async getBlacklistIPsRoot(): Promise<Record<string, Reason>> {
+    const res = await fetch(`${API_BASE}/api/blacklist/ips/`);
+    if (!res.ok) throw new Error('Failed to get root blacklist IPs');
+    return res.json();
+  },
+
+  async addBlacklistIPRoot(ip: string, reason: Reason, duration: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/blacklist/ip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subdomain: "", ip, reason, duration }),
+    });
+    if (!res.ok) throw new Error('Failed to add root blacklist IP');
+  },
+
+  async removeBlacklistIPRoot(ip: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/blacklist/root/ip/remove/${ip}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to remove root blacklist IP');
+  },
 };

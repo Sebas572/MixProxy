@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function Blacklist() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [selectedSubdomain, setSelectedSubdomain] = useState<string>("");
+  const [selectedSubdomain, setSelectedSubdomain] = useState<string | undefined>(undefined);
   const [newIP, setNewIP] = useState("");
   const [newReason, setNewReason] = useState("");
   const [newDuration, setNewDuration] = useState("1h");
@@ -24,7 +24,7 @@ export default function Blacklist() {
   const { data: ips } = useQuery({
     queryKey: ['blacklist-ips', selectedSubdomain],
     queryFn: () => api.getBlacklistIPs(selectedSubdomain),
-    enabled: !!selectedSubdomain,
+    enabled: selectedSubdomain !== undefined,
   });
 
 
@@ -57,7 +57,13 @@ export default function Blacklist() {
   });
 
   const removeIPMutation = useMutation({
-    mutationFn: (ip: string) => api.removeBlacklistIP(selectedSubdomain, ip),
+    mutationFn: (ip: string) => {
+      if (selectedSubdomain === "") {
+        return api.removeBlacklistIPRoot(ip);
+      } else {
+        return api.removeBlacklistIP(selectedSubdomain, ip);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blacklist-ips', selectedSubdomain] });
       toast({
@@ -90,7 +96,7 @@ export default function Blacklist() {
       <div className="rounded-xl border border-border bg-card p-6 space-y-4">
         <h2 className="text-lg font-semibold text-foreground">Enabled Blacklists</h2>
         <div className="grid gap-2 md:grid-cols-3">
-          {enabledSubdomains?.map((subdomain) => (
+          {Array.isArray(enabledSubdomains) && enabledSubdomains.map((subdomain) => (
             <Button
               key={subdomain}
               variant={selectedSubdomain === subdomain ? "default" : "outline"}
@@ -98,10 +104,10 @@ export default function Blacklist() {
               className="justify-start"
             >
               <Ban className="h-4 w-4 mr-2" />
-              {subdomain}
+              {subdomain || "Root Domain"}
             </Button>
           ))}
-          {(!enabledSubdomains || enabledSubdomains.length === 0) && (
+          {(!Array.isArray(enabledSubdomains) || enabledSubdomains.length === 0) && (
             <div className="text-center text-muted-foreground py-8 col-span-3">
               No blacklists enabled
             </div>
@@ -109,7 +115,7 @@ export default function Blacklist() {
         </div>
       </div>
 
-      {selectedSubdomain && (
+      {selectedSubdomain !== undefined && (
         <>
           {/* Add IP */}
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">

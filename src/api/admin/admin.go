@@ -224,6 +224,25 @@ func HandleAdminAPI() {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
 
+	api.Put("/whitelist/enabled/", func(c *fiber.Ctx) error {
+		var body struct {
+			Enabled bool `json:"enabled"`
+		}
+		if err := c.BodyParser(&body); err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "Invalid JSON"})
+		}
+		var err error
+		if body.Enabled {
+			err = redis.EnabledWhitelistForSubdomain("")
+		} else {
+			err = redis.DisabledWhitelistForSubdomain("")
+		}
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(fiber.Map{"status": "ok"})
+	})
+
 	api.Get("/whitelist/enabled", func(c *fiber.Ctx) error {
 		subdomains, err := redis.GetAllEnabledWhitelistSubdomains()
 		if err != nil {
@@ -235,6 +254,14 @@ func HandleAdminAPI() {
 	api.Get("/whitelist/ips/:subdomain", func(c *fiber.Ctx) error {
 		subdomain := c.Params("subdomain")
 		ips, err := redis.GetAllIPsForWhitelist(subdomain)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(ips)
+	})
+
+	api.Get("/whitelist/ips/", func(c *fiber.Ctx) error {
+		ips, err := redis.GetAllIPsForWhitelist("")
 		if err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -272,6 +299,15 @@ func HandleAdminAPI() {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
 
+	api.Delete("/whitelist/root/ip/remove/:ip", func(c *fiber.Ctx) error {
+		ip := c.Params("ip")
+		err := redis.RemoveIPFromWhitelist("", ip)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(fiber.Map{"status": "ok"})
+	})
+
 	// Blacklist endpoints
 	api.Get("/blacklist/enabled/:subdomain", func(c *fiber.Ctx) error {
 		subdomain := c.Params("subdomain")
@@ -302,16 +338,30 @@ func HandleAdminAPI() {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
 
-	api.Get("/blacklist/enabled", func(c *fiber.Ctx) error {
-		subdomains := []string{}
-		cfg, _ = config.ReadConfig()
-
-		for _, load := range cfg.LoadBalancer {
-			if load.BlacklistsEnabled {
-				subdomains = append(subdomains, load.Subdomain)
-			}
+	api.Put("/blacklist/enabled/", func(c *fiber.Ctx) error {
+		var body struct {
+			Enabled bool `json:"enabled"`
 		}
+		if err := c.BodyParser(&body); err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "Invalid JSON"})
+		}
+		var err error
+		if body.Enabled {
+			err = redis.EnabledBlacklistForSubdomain("")
+		} else {
+			err = redis.DisabledBlacklistForSubdomain("")
+		}
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(fiber.Map{"status": "ok"})
+	})
 
+	api.Get("/blacklist/enabled", func(c *fiber.Ctx) error {
+		subdomains, err := redis.GetAllEnabledBlacklistSubdomains()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
 		return c.JSON(subdomains)
 	})
 
@@ -322,6 +372,14 @@ func HandleAdminAPI() {
 			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 		}
 
+		return c.JSON(ips)
+	})
+
+	api.Get("/blacklist/ips/", func(c *fiber.Ctx) error {
+		ips, err := redis.GetAllIPsForBlacklist("")
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
 		return c.JSON(ips)
 	})
 
@@ -355,4 +413,14 @@ func HandleAdminAPI() {
 		}
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
+
+	api.Delete("/blacklist/root/ip/remove/:ip", func(c *fiber.Ctx) error {
+		ip := c.Params("ip")
+		err := redis.RemoveIPFromBlacklist("", ip)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(fiber.Map{"status": "ok"})
+	})
+
 }
