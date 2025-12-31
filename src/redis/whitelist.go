@@ -2,7 +2,6 @@ package redis
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 )
@@ -33,7 +32,6 @@ func SetIPForWhitelist(subdomain, ip string, reason Reason, duration time.Durati
 }
 
 func GetIPForWhitelist(subdomain, ip string) (Reason, error) {
-	fmt.Println("[" + subdomain + "]" + ip)
 	content, err := rdbWhitelist.Get(ctx, "["+subdomain+"]"+ip).Result()
 
 	if err != nil {
