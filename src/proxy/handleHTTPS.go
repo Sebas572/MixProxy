@@ -29,6 +29,12 @@ func handleHTTPS(c *fiber.Ctx) error {
 		}
 	}
 
+	// Check global blacklist
+	_, err := redis.GetIPForGlobalBlacklist(c.IP())
+	if err == nil {
+		return c.SendString("You are on the global blacklist")
+	}
+
 	if isEnabled, _ := redis.IsEnabledBlacklistForSubdomain(subdomain); isEnabled {
 		reason, err := redis.GetIPForBlacklist(subdomain, c.IP())
 		if err == nil {

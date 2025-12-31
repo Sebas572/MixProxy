@@ -375,6 +375,14 @@ func HandleAdminAPI() {
 		return c.JSON(ips)
 	})
 
+	api.Get("/blacklist/global/ips", func(c *fiber.Ctx) error {
+		ips, err := redis.GetAllIPsForGlobalBlacklist()
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(ips)
+	})
+
 	api.Get("/blacklist/ips/", func(c *fiber.Ctx) error {
 		ips, err := redis.GetAllIPsForBlacklist("")
 		if err != nil {
@@ -404,10 +412,39 @@ func HandleAdminAPI() {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
 
+	api.Post("/blacklist/global/ip", func(c *fiber.Ctx) error {
+		var body struct {
+			IP       string       `json:"ip"`
+			Reason   redis.Reason `json:"reason"`
+			Duration string       `json:"duration"`
+		}
+		if err := c.BodyParser(&body); err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "Invalid JSON"})
+		}
+		dur, err := time.ParseDuration(body.Duration)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "Invalid duration"})
+		}
+		err = redis.SetIPForGlobalBlacklist(body.IP, body.Reason, dur)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(fiber.Map{"status": "ok"})
+	})
+
 	api.Delete("/blacklist/ip/:subdomain/:ip", func(c *fiber.Ctx) error {
 		subdomain := c.Params("subdomain")
 		ip := c.Params("ip")
 		err := redis.RemoveIPFromBlacklist(subdomain, ip)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(fiber.Map{"status": "ok"})
+	})
+
+	api.Delete("/blacklist/global/ip/:ip", func(c *fiber.Ctx) error {
+		ip := c.Params("ip")
+		err := redis.RemoveIPFromGlobalBlacklist(ip)
 		if err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 		}

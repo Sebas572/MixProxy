@@ -23,7 +23,7 @@ export default function Blacklist() {
 
   const { data: ips } = useQuery({
     queryKey: ['blacklist-ips', selectedSubdomain],
-    queryFn: () => api.getBlacklistIPs(selectedSubdomain),
+    queryFn: () => selectedSubdomain === "global" ? api.getBlacklistIPsGlobal() : api.getBlacklistIPs(selectedSubdomain),
     enabled: selectedSubdomain !== undefined,
   });
 
@@ -35,7 +35,11 @@ export default function Blacklist() {
         Time: new Date().toISOString(),
         Date: new Date().toISOString().split('T')[0],
       };
-      return api.addBlacklistIP(selectedSubdomain, newIP, reason, newDuration);
+      if (selectedSubdomain === "global") {
+        return api.addBlacklistIPGlobal(newIP, reason, newDuration);
+      } else {
+        return api.addBlacklistIP(selectedSubdomain, newIP, reason, newDuration);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blacklist-ips', selectedSubdomain] });
@@ -58,7 +62,9 @@ export default function Blacklist() {
 
   const removeIPMutation = useMutation({
     mutationFn: (ip: string) => {
-      if (selectedSubdomain === "") {
+      if (selectedSubdomain === "global") {
+        return api.removeBlacklistIPGlobal(ip);
+      } else if (selectedSubdomain === "") {
         return api.removeBlacklistIPRoot(ip);
       } else {
         return api.removeBlacklistIP(selectedSubdomain, ip);
@@ -107,6 +113,15 @@ export default function Blacklist() {
               {subdomain || "Root Domain"}
             </Button>
           ))}
+          <Button
+            key="global"
+            variant={selectedSubdomain === "global" ? "default" : "outline"}
+            onClick={() => setSelectedSubdomain("global")}
+            className="justify-start"
+          >
+            <Ban className="h-4 w-4 mr-2" />
+            Global
+          </Button>
           {(!Array.isArray(enabledSubdomains) || enabledSubdomains.length === 0) && (
             <div className="text-center text-muted-foreground py-8 col-span-3">
               No blacklists enabled
@@ -119,7 +134,7 @@ export default function Blacklist() {
         <>
           {/* Add IP */}
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">Add IP to Blacklist for {selectedSubdomain}</h2>
+            <h2 className="text-lg font-semibold text-foreground">Add IP to Blacklist for {selectedSubdomain === "global" ? "Global" : selectedSubdomain || "Root domain"}</h2>
             <div className="grid gap-4 md:grid-cols-4">
               <div className="space-y-2">
                 <Label>IP Address</Label>
@@ -163,7 +178,7 @@ export default function Blacklist() {
 
           {/* IP Table */}
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">Blacklisted IPs for {selectedSubdomain}</h2>
+            <h2 className="text-lg font-semibold text-foreground">Blacklisted IPs for {selectedSubdomain === "global" ? "Global" : selectedSubdomain || "Root domain"}</h2>
             <Table>
               <TableHeader>
                 <TableRow>

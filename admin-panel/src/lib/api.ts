@@ -277,4 +277,24 @@ export const api = {
     const res = await fetch(`${API_BASE}/api/blacklist/root/ip/remove/${ip}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to remove root blacklist IP');
   },
+
+  async getBlacklistIPsGlobal(): Promise<Record<string, Reason>> {
+    const res = await fetch(`${API_BASE}/api/blacklist/global/ips`);
+    if (!res.ok) throw new Error('Failed to get global blacklist IPs');
+    return res.json();
+  },
+
+  async addBlacklistIPGlobal(ip: string, reason: Reason, duration: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/blacklist/global/ip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ip, reason, duration }),
+    });
+    if (!res.ok) throw new Error('Failed to add global blacklist IP');
+  },
+
+  async removeBlacklistIPGlobal(ip: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/blacklist/global/ip/${ip}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to remove global blacklist IP');
+  },
 };
