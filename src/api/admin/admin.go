@@ -178,6 +178,10 @@ func HandleAdminAPI() {
 				"details": err.Error(),
 			})
 		}
+
+		newCfg.AdminUsername = cfg.AdminUsername
+		newCfg.AdminPassword = cfg.AdminPassword
+
 		// Write to file
 		data, err := json.MarshalIndent(newCfg, "", "  ")
 		if err != nil {
@@ -192,6 +196,77 @@ func HandleAdminAPI() {
 		}
 
 		return c.JSON(fiber.Map{"status": "updated"})
+	})
+
+	api.Post("/config/change/subdominio", func(c *fiber.Ctx) error {
+		var body struct {
+			OldSubdomain string `json:"OldSubdomain"`
+			NewSubdomain string `json:"NewSubdomain"`
+		}
+
+		if err := c.BodyParser(&body); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid JSON",
+			})
+		}
+
+		cfg, err := config.ReadConfig()
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Failed to read config",
+			})
+		}
+
+		// Verify that the new domain is not being used by another server
+		for _, lb := range cfg.LoadBalancer {
+			if lb.Subdomain == body.NewSubdomain {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error": "The new subdomain is already in use",
+				})
+			}
+		}
+
+		// Find and update the load balancer entry
+		found := false
+		for i, lb := range cfg.LoadBalancer {
+			if lb.Subdomain == body.OldSubdomain {
+				cfg.LoadBalancer[i].Subdomain = body.NewSubdomain
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Load balancer with old subdomain not found",
+			})
+		}
+
+		// Validate the config
+		if err := config.ValidateConfig(cfg); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Configuración inválida",
+				"details": err.Error(),
+			})
+		}
+
+		// Write to file
+		data, err := json.MarshalIndent(cfg, "", "  ")
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Error al serializar configuración",
+			})
+		}
+		if err := os.WriteFile(config.CONFIG_PATH, data, 0644); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Error al escribir configuración",
+			})
+		}
+
+		redis.ChangeSubdomainWhitelist(body.OldSubdomain, body.NewSubdomain)
+		redis.ChangeSubdomainBlacklist(body.OldSubdomain, body.NewSubdomain)
+
+		return c.JSON(fiber.Map{"status": "subdomain changed"})
 	})
 
 	// Whitelist endpoints

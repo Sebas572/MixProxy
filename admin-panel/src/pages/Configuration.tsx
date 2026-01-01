@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, Config } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +20,7 @@ export default function Configuration() {
 
   const [formData, setFormData] = useState<Config | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [subdomainModal, setSubdomainModal] = useState<{isOpen: boolean, lbIndex: number | null, oldSubdomain: string, newSubdomain: string}>({isOpen: false, lbIndex: null, oldSubdomain: '', newSubdomain: ''});
 
   React.useEffect(() => {
     if (config && !formData) {
@@ -75,6 +77,27 @@ export default function Configuration() {
     mutationFn: ({ subdomain, enabled }: { subdomain: string, enabled: boolean }) => api.setBlacklistEnabled(subdomain, enabled),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['enabled-blacklists'] });
+    },
+  });
+
+  const changeSubdomainMutation = useMutation({
+    mutationFn: ({ old, new: newSub }: { old: string, new: string }) => api.changeSubdomain(old, newSub),
+    onSuccess: () => {
+      if (subdomainModal.lbIndex !== null) {
+        updateLoadBalancer(subdomainModal.lbIndex, 'subdomain', subdomainModal.newSubdomain);
+      }
+      setSubdomainModal({ isOpen: false, lbIndex: null, oldSubdomain: '', newSubdomain: '' });
+      toast({
+        title: "Success",
+        description: "Subdomain changed successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to change subdomain.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -667,8 +690,9 @@ export default function Configuration() {
                   <Input
                     required
                     value={lb.subdomain}
-                    onChange={(e) => updateLoadBalancer(i, 'subdomain', e.target.value)}
-                    className="bg-secondary border-border font-mono"
+                    readOnly
+                    onClick={() => setSubdomainModal({ isOpen: true, lbIndex: i, oldSubdomain: lb.subdomain, newSubdomain: lb.subdomain })}
+                    className="bg-secondary border-border font-mono cursor-pointer"
                   />
                 </div>
                 <div className="center-switch">
@@ -812,6 +836,32 @@ export default function Configuration() {
           </Button>
         </div>
       </div>
+
+      <Dialog open={subdomainModal.isOpen} onOpenChange={(open) => setSubdomainModal(prev => ({ ...prev, isOpen: open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Subdomain</DialogTitle>
+            <DialogDescription>Enter the new subdomain value.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-subdomain">New Subdomain</Label>
+              <Input
+                id="new-subdomain"
+                value={subdomainModal.newSubdomain}
+                onChange={(e) => setSubdomainModal(prev => ({ ...prev, newSubdomain: e.target.value }))}
+                className="bg-secondary border-border font-mono"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSubdomainModal({ isOpen: false, lbIndex: null, oldSubdomain: '', newSubdomain: '' })}>Cancel</Button>
+            <Button onClick={() => changeSubdomainMutation.mutate({ old: subdomainModal.oldSubdomain, new: subdomainModal.newSubdomain })} disabled={changeSubdomainMutation.isPending}>
+              {changeSubdomainMutation.isPending ? 'Applying...' : 'Apply Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

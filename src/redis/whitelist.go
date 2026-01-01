@@ -2,6 +2,7 @@ package redis
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -81,4 +82,51 @@ func GetAllEnabledWhitelistSubdomains() ([]string, error) {
 		}
 	}
 	return subdomains, nil
+}
+
+func ChangeSubdomainWhitelist(oldSubdomain, newSubdomain string) {
+	fmt.Printf("%s -> %s\n", oldSubdomain, newSubdomain)
+	if oldSubdomain == newSubdomain {
+		fmt.Println("Subdomains are the same")
+		return
+	}
+
+	pattern := fmt.Sprintf("[[]%s]*", oldSubdomain)
+	var cursor uint64
+	var changed int
+
+	for {
+		// Buscar keys
+		keys, nextCursor, _ := rdbWhitelist.Scan(ctx, cursor, pattern, 100).Result()
+		fmt.Println(keys)
+
+		// Procesar keys
+		for _, oldKey := range keys {
+			parts := strings.SplitN(oldKey, "]", 2)
+			if len(parts) != 2 {
+				continue
+			}
+
+			newKey := fmt.Sprintf("[%s]%s", newSubdomain, parts[1])
+			if oldKey == newKey {
+				continue
+			}
+
+			// Intentar renombrar, si falla ignorar
+			if err := rdbWhitelist.Rename(ctx, oldKey, newKey).Err(); err == nil {
+				changed++
+			}
+		}
+
+		if nextCursor == 0 {
+			break
+		}
+		cursor = nextCursor
+	}
+
+	if err := rdbWhitelist.Rename(ctx, oldSubdomain, newSubdomain).Err(); err == nil {
+		changed++
+	}
+
+	fmt.Printf("Changed %d keys from [%s] to [%s]\n", changed, oldSubdomain, newSubdomain)
 }

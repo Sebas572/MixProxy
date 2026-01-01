@@ -113,6 +113,17 @@ export const api = {
     if (!res.ok) throw new Error('Failed to update config');
   },
 
+  async changeSubdomain(oldSubdomain: string, newSubdomain: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/config/change/subdominio`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ OldSubdomain: oldSubdomain, NewSubdomain: newSubdomain }),
+    });
+    if (!res.ok) throw new Error('Failed to change subdomain');
+  },
+
   async reload(): Promise<void> {
     const res = await fetch(`${API_BASE}/api/reload`, { method: 'POST' });
     if (!res.ok) throw new Error('Failed to reload');
