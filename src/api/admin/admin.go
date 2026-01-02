@@ -179,6 +179,40 @@ func HandleAdminAPI() {
 			})
 		}
 
+		// Read current config for comparison
+		oldCfg, err := config.ReadConfig()
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Error al leer configuración actual",
+			})
+		}
+
+		// Find removed subdomains
+		removedSubdomains := []string{}
+		for _, oldLb := range oldCfg.LoadBalancer {
+			found := false
+			for _, newLb := range newCfg.LoadBalancer {
+				if oldLb.Subdomain == newLb.Subdomain {
+					found = true
+					break
+				}
+			}
+			if !found {
+				removedSubdomains = append(removedSubdomains, oldLb.Subdomain)
+			}
+		}
+
+		// Check if root load balancer was removed
+		if oldCfg.RootLoadBalancer != nil && newCfg.RootLoadBalancer == nil {
+			removedSubdomains = append(removedSubdomains, "")
+		}
+
+		// Clean up Redis for removed subdomains
+		for _, sub := range removedSubdomains {
+			redis.RemoveAllForWhitelistSubdomain(sub)
+			redis.RemoveAllForBlacklistSubdomain(sub)
+		}
+
 		newCfg.AdminUsername = cfg.AdminUsername
 		newCfg.AdminPassword = cfg.AdminPassword
 

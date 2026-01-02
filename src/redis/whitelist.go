@@ -130,3 +130,17 @@ func ChangeSubdomainWhitelist(oldSubdomain, newSubdomain string) {
 
 	fmt.Printf("Changed %d keys from [%s] to [%s]\n", changed, oldSubdomain, newSubdomain)
 }
+
+func RemoveAllForWhitelistSubdomain(subdomain string) error {
+	// Get all IPs
+	ips, err := GetAllIPsForWhitelist(subdomain)
+	if err != nil {
+		return err
+	}
+	// Delete each IP
+	for ip := range ips {
+		RemoveIPFromWhitelist(subdomain, ip)
+	}
+	// Delete enabled
+	return DisabledWhitelistForSubdomain(subdomain)
+}

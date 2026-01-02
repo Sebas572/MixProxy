@@ -177,3 +177,17 @@ func ChangeSubdomainBlacklist(oldSubdomain, newSubdomain string) {
 
 	fmt.Printf("Changed %d keys from [%s] to [%s]\n", changed, oldSubdomain, newSubdomain)
 }
+
+func RemoveAllForBlacklistSubdomain(subdomain string) error {
+	// Get all IPs
+	ips, err := GetAllIPsForBlacklist(subdomain)
+	if err != nil {
+		return err
+	}
+	// Delete each IP
+	for ip := range ips {
+		RemoveIPFromBlacklist(subdomain, ip)
+	}
+	// Delete enabled
+	return DisabledBlacklistForSubdomain(subdomain)
+}
