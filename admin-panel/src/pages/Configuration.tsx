@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, Config } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -19,12 +20,14 @@ export default function Configuration() {
 
   const [formData, setFormData] = useState<Config | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [subdomainModal, setSubdomainModal] = useState<{isOpen: boolean, lbIndex: number | null, oldSubdomain: string, newSubdomain: string}>({isOpen: false, lbIndex: null, oldSubdomain: '', newSubdomain: ''});
 
   React.useEffect(() => {
     if (config && !formData) {
       setFormData(config);
     }
   }, [config, formData]);
+
 
   const updateConfigMutation = useMutation({
     mutationFn: api.updateConfig,
@@ -61,6 +64,43 @@ export default function Configuration() {
       });
     },
   });
+
+
+  const setWhitelistEnabledMutation = useMutation({
+    mutationFn: ({ subdomain, enabled }: { subdomain: string, enabled: boolean }) => api.setWhitelistEnabled(subdomain, enabled),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['enabled-whitelists'] });
+    },
+  });
+
+  const setBlacklistEnabledMutation = useMutation({
+    mutationFn: ({ subdomain, enabled }: { subdomain: string, enabled: boolean }) => api.setBlacklistEnabled(subdomain, enabled),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['enabled-blacklists'] });
+    },
+  });
+
+  const changeSubdomainMutation = useMutation({
+    mutationFn: ({ old, new: newSub }: { old: string, new: string }) => api.changeSubdomain(old, newSub),
+    onSuccess: () => {
+      if (subdomainModal.lbIndex !== null) {
+        updateLoadBalancer(subdomainModal.lbIndex, 'subdomain', subdomainModal.newSubdomain);
+      }
+      setSubdomainModal({ isOpen: false, lbIndex: null, oldSubdomain: '', newSubdomain: '' });
+      toast({
+        title: "Success",
+        description: "Subdomain changed successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to change subdomain.",
+        variant: "destructive",
+      });
+    },
+  });
+
 
   const validateConfig = (cfg: Config): string[] => {
     const errors: string[] = [];
@@ -291,8 +331,11 @@ export default function Configuration() {
         active: true,
         cache_enabled: false,
         cache_paths: [],
-        vps: [{ ip: "", capacity: 1, active: true }]
-      });
+        whitelist_enabled: false,
+        blacklist_enabled: false,
+        vps: [{ ip: "", capacity: 1, active: true }],
+        isNew: true
+      } as any);
       return { ...prev, load_balancer: newLB };
     });
   };
@@ -376,7 +419,7 @@ export default function Configuration() {
   const addRootLoadBalancer = () => {
     setFormData(prev => {
       if (!prev) return null;
-      return { ...prev, root_load_balancer: { vps: [{ ip: "", capacity: 1, active: true }], type: "https", active: true, cache_enabled: false, cache_paths: [] } };
+      return { ...prev, root_load_balancer: { vps: [{ ip: "", capacity: 1, active: true }], type: "https", active: true, cache_enabled: false, cache_paths: [], whitelist_enabled: false, blacklist_enabled: false } };
     });
   };
 
@@ -496,7 +539,7 @@ export default function Configuration() {
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-4">
               <div className="center-switch">
                 <Label>HTTPS Enabled</Label>
                 <Switch
@@ -509,6 +552,38 @@ export default function Configuration() {
                 <Switch
                   checked={formData.root_load_balancer.active}
                   onCheckedChange={(checked) => updateRootLB('active', checked)}
+                />
+              </div>
+              <div className="center-switch">
+                <Label>Whitelist</Label>
+                <Switch
+                  checked={formData?.root_load_balancer?.whitelist_enabled || false}
+                  onCheckedChange={(checked) => {
+                    setFormData(prev => {
+                      if (!prev || !prev.root_load_balancer) return prev;
+                      return { ...prev, root_load_balancer: { ...prev.root_load_balancer, whitelist_enabled: checked, blacklist_enabled: checked ? false : prev.root_load_balancer.blacklist_enabled } };
+                    });
+                    if (checked) {
+                      setBlacklistEnabledMutation.mutate({ subdomain: "", enabled: false });
+                    }
+                    setWhitelistEnabledMutation.mutate({ subdomain: "", enabled: checked });
+                  }}
+                />
+              </div>
+              <div className="center-switch">
+                <Label>Blacklist</Label>
+                <Switch
+                  checked={formData?.root_load_balancer?.blacklist_enabled || false}
+                  onCheckedChange={(checked) => {
+                    setFormData(prev => {
+                      if (!prev || !prev.root_load_balancer) return prev;
+                      return { ...prev, root_load_balancer: { ...prev.root_load_balancer, blacklist_enabled: checked, whitelist_enabled: checked ? false : prev.root_load_balancer.whitelist_enabled } };
+                    });
+                    if (checked) {
+                      setWhitelistEnabledMutation.mutate({ subdomain: "", enabled: false });
+                    }
+                    setBlacklistEnabledMutation.mutate({ subdomain: "", enabled: checked });
+                  }}
                 />
               </div>
             </div>
@@ -610,28 +685,82 @@ export default function Configuration() {
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-5">
                 <div className="space-y-2">
                   <Label>Subdomain</Label>
-                  <Input
-                    required
-                    value={lb.subdomain}
-                    onChange={(e) => updateLoadBalancer(i, 'subdomain', e.target.value)}
-                    className="bg-secondary border-border font-mono"
-                  />
+                  {(lb as any).isNew ? (
+                    <Input
+                      required
+                      value={lb.subdomain}
+                      onChange={(e) => updateLoadBalancer(i, 'subdomain', e.target.value)}
+                      className="bg-secondary border-border font-mono"
+                    />
+                  ) : (
+                    <Input
+                      required
+                      value={lb.subdomain}
+                      readOnly
+                      onClick={() => setSubdomainModal({ isOpen: true, lbIndex: i, oldSubdomain: lb.subdomain, newSubdomain: lb.subdomain })}
+                      className="bg-secondary border-border font-mono cursor-pointer"
+                    />
+                  )}
                 </div>
-                <div className="center-switch h-24">
-                  <Label>HTTPS Enabled</Label>
+                <div className="center-switch">
+                  <Label>HTTPS</Label>
                   <Switch
                     checked={lb.type === "https"}
                     onCheckedChange={(checked) => updateLoadBalancer(i, 'type', checked ? "https" : "http")}
                   />
                 </div>
-                <div className="center-switch h-24">
+                <div className="center-switch">
                   <Label>Active</Label>
                   <Switch
                     checked={lb.active}
                     onCheckedChange={(checked) => updateLoadBalancer(i, 'active', checked)}
+                  />
+                </div>
+                <div className="center-switch">
+                  <Label>Whitelist</Label>
+                  <Switch
+                    checked={lb.whitelist_enabled}
+                    onCheckedChange={(checked) => {
+                      setFormData(prev => {
+                        if (!prev) return null;
+                        const newLB = prev.load_balancer.map(lbItem => {
+                          if (lbItem.subdomain === lb.subdomain) {
+                            return { ...lbItem, whitelist_enabled: checked, blacklist_enabled: checked ? false : lbItem.blacklist_enabled };
+                          }
+                          return lbItem;
+                        });
+                        return { ...prev, load_balancer: newLB };
+                      });
+                      if (checked) {
+                        setBlacklistEnabledMutation.mutate({ subdomain: lb.subdomain, enabled: false });
+                      }
+                      setWhitelistEnabledMutation.mutate({ subdomain: lb.subdomain, enabled: checked });
+                    }}
+                  />
+                </div>
+                <div className="center-switch">
+                  <Label>Blacklist</Label>
+                  <Switch
+                    checked={lb.blacklist_enabled}
+                    onCheckedChange={(checked) => {
+                      setFormData(prev => {
+                        if (!prev) return null;
+                        const newLB = prev.load_balancer.map(lbItem => {
+                          if (lbItem.subdomain === lb.subdomain) {
+                            return { ...lbItem, blacklist_enabled: checked, whitelist_enabled: checked ? false : lbItem.whitelist_enabled };
+                          }
+                          return lbItem;
+                        });
+                        return { ...prev, load_balancer: newLB };
+                      });
+                      if (checked) {
+                        setWhitelistEnabledMutation.mutate({ subdomain: lb.subdomain, enabled: false });
+                      }
+                      setBlacklistEnabledMutation.mutate({ subdomain: lb.subdomain, enabled: checked });
+                    }}
                   />
                 </div>
               </div>
@@ -717,6 +846,32 @@ export default function Configuration() {
           </Button>
         </div>
       </div>
+
+      <Dialog open={subdomainModal.isOpen} onOpenChange={(open) => setSubdomainModal(prev => ({ ...prev, isOpen: open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Subdomain</DialogTitle>
+            <DialogDescription>Enter the new subdomain value.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-subdomain">New Subdomain</Label>
+              <Input
+                id="new-subdomain"
+                value={subdomainModal.newSubdomain}
+                onChange={(e) => setSubdomainModal(prev => ({ ...prev, newSubdomain: e.target.value }))}
+                className="bg-secondary border-border font-mono"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSubdomainModal({ isOpen: false, lbIndex: null, oldSubdomain: '', newSubdomain: '' })}>Cancel</Button>
+            <Button onClick={() => changeSubdomainMutation.mutate({ old: subdomainModal.oldSubdomain, new: subdomainModal.newSubdomain })} disabled={changeSubdomainMutation.isPending}>
+              {changeSubdomainMutation.isPending ? 'Applying...' : 'Apply Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

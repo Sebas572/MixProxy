@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"log"
 	"mixproxy/src/proxy/tools"
+	"mixproxy/src/redis"
 	"strings"
 
 	fws "github.com/fasthttp/websocket"
@@ -45,6 +46,24 @@ func handleWebSocket(c *websocket.Conn) {
 	if err != nil {
 		log.Printf("Error obtaining URL for WebSocket: %v", err)
 		return
+	}
+
+	subdomain := getSubdomainFromWebSocket(c)
+
+	// Check global blacklist
+	_, err = redis.GetIPForGlobalBlacklist(c.RemoteAddr().String())
+	if err == nil {
+		c.WriteMessage(websocket.CloseMessage, []byte("You are on the global blacklist"))
+		return
+	}
+
+	// Check subdomain blacklist
+	if isEnabled, _ := redis.IsEnabledBlacklistForSubdomain(subdomain); isEnabled {
+		_, err = redis.GetIPForBlacklist(subdomain, c.RemoteAddr().String())
+		if err == nil {
+			c.WriteMessage(websocket.CloseMessage, []byte("You are on the blacklist"))
+			return
+		}
 	}
 
 	// Verificar si la URL es wss:// o ws:// y configurar el Dialer

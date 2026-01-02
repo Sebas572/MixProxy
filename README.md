@@ -8,21 +8,31 @@
 
 MixProxy is a reverse proxy server written in Go, designed to efficiently route traffic to services with load balancing capabilities. It includes an administration panel for easy configuration and monitoring.
 
-## Screenshots
+<details>
+ 	<summary><h2>Screenshots</h2></summary>
 
-### Dashboard
-![Dashboard](screenshots/dashboard.png)
+   ### Dashboard
+   ![Dashboard](screenshots/dashboard.png)
 
-### IPs
-![IPs](screenshots/IPs.png)
+   ### Requests
+   ![Requests](screenshots/requests.png)
 
-### Requests
-![Requests](screenshots/requests.png)
+   ### IPs
+   ![IPs](screenshots/IPs.png)
 
-### Configuration
-![Configuration 01](screenshots/Configuration_01.png)
+   ### Whitelist
+   ![Whitelist](screenshots/whitelist.png)
 
-![Configuration 02](screenshots/Configuration_02.png)
+   ### Blacklist
+   ![Blacklist](screenshots/blacklist.png)
+
+   ### Configuration
+   ![Configuration 01](screenshots/Configuration_01.png)
+
+   ![Configuration 02](screenshots/Configuration_02.png)
+
+</details>
+
 
 ## Installation
 

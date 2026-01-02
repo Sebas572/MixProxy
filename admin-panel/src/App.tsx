@@ -8,6 +8,8 @@ import Index from "./pages/Index";
 import Requests from "./pages/Requests";
 import IPs from "./pages/IPs";
 import Configuration from "./pages/Configuration";
+import Whitelist from "./pages/Whitelist";
+import Blacklist from "./pages/Blacklist";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +26,8 @@ const App = () => (
             <Route path="/requests" element={<Requests />} />
             <Route path="/ips" element={<IPs />} />
             <Route path="/configuration" element={<Configuration />} />
+            <Route path="/whitelist" element={<Whitelist />} />
+            <Route path="/blacklist" element={<Blacklist />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Layout>

@@ -3,7 +3,6 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,12 +22,14 @@ type Config struct {
 }
 
 type LoadBalancerEntry struct {
-	VPS          []VPSEntry `json:"vps"`
-	Type         string     `json:"type"`
-	Subdomain    string     `json:"subdomain"`
-	Active       bool       `json:"active"`
-	CacheEnabled bool       `json:"cache_enabled"`
-	CachePaths   []string   `json:"cache_paths"`
+	VPS               []VPSEntry `json:"vps"`
+	Type              string     `json:"type"`
+	Subdomain         string     `json:"subdomain"`
+	Active            bool       `json:"active"`
+	CacheEnabled      bool       `json:"cache_enabled"`
+	CachePaths        []string   `json:"cache_paths"`
+	WhitelistsEnabled bool       `json:"whitelist_enabled"`
+	BlacklistsEnabled bool       `json:"blacklist_enabled"`
 }
 
 type VPSEntry struct {
@@ -135,12 +136,4 @@ func ReadConfig() (*Config, error) {
 	}
 
 	return &cfg, nil
-}
-
-func mustParseURL(raw string) *url.URL {
-	u, err := url.Parse(raw)
-	if err != nil {
-		panic(err)
-	}
-	return u
 }

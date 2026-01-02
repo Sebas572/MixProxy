@@ -39,6 +39,18 @@ func reloadConfig() {
 		redis.SetAllowSubdomainToUseCache(subdomain, e.CacheEnabled)
 		redis.SetCachePaths(subdomain, e.CachePaths)
 
+		if e.WhitelistsEnabled {
+			redis.EnabledWhitelistForSubdomain(e.Subdomain)
+		} else {
+			redis.DisabledWhitelistForSubdomain(e.Subdomain)
+		}
+
+		if e.BlacklistsEnabled {
+			redis.EnabledBlacklistForSubdomain(e.Subdomain)
+		} else {
+			redis.DisabledBlacklistForSubdomain(e.Subdomain)
+		}
+
 		for _, v := range e.VPS {
 			vps = append(vps, LoadBalancer{
 				URL:      v.IP,
