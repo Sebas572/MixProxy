@@ -333,8 +333,9 @@ export default function Configuration() {
         cache_paths: [],
         whitelist_enabled: false,
         blacklist_enabled: false,
-        vps: [{ ip: "", capacity: 1, active: true }]
-      });
+        vps: [{ ip: "", capacity: 1, active: true }],
+        isNew: true
+      } as any);
       return { ...prev, load_balancer: newLB };
     });
   };
@@ -687,13 +688,22 @@ export default function Configuration() {
               <div className="grid gap-4 md:grid-cols-5">
                 <div className="space-y-2">
                   <Label>Subdomain</Label>
-                  <Input
-                    required
-                    value={lb.subdomain}
-                    readOnly
-                    onClick={() => setSubdomainModal({ isOpen: true, lbIndex: i, oldSubdomain: lb.subdomain, newSubdomain: lb.subdomain })}
-                    className="bg-secondary border-border font-mono cursor-pointer"
-                  />
+                  {(lb as any).isNew ? (
+                    <Input
+                      required
+                      value={lb.subdomain}
+                      onChange={(e) => updateLoadBalancer(i, 'subdomain', e.target.value)}
+                      className="bg-secondary border-border font-mono"
+                    />
+                  ) : (
+                    <Input
+                      required
+                      value={lb.subdomain}
+                      readOnly
+                      onClick={() => setSubdomainModal({ isOpen: true, lbIndex: i, oldSubdomain: lb.subdomain, newSubdomain: lb.subdomain })}
+                      className="bg-secondary border-border font-mono cursor-pointer"
+                    />
+                  )}
                 </div>
                 <div className="center-switch">
                   <Label>HTTPS</Label>
