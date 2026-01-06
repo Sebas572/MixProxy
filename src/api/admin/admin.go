@@ -571,8 +571,21 @@ func HandleAdminAPI() {
 	})
 
 	api.Get("/docker/containers", func(c *fiber.Ctx) error {
-		containers := docker.GetContainers()
+		all := c.Query("all") == "true"
+		containers := docker.GetContainers(all)
 
 		return c.JSON(fiber.Map{"containers": containers})
+	})
+
+	api.Post("/docker/containers/start/:id", func(c *fiber.Ctx) error {
+		id := c.Params("id")
+		docker.StartContainer(id)
+		return c.JSON(fiber.Map{"status": "started"})
+	})
+
+	api.Post("/docker/containers/stop/:id", func(c *fiber.Ctx) error {
+		id := c.Params("id")
+		docker.StopContainer(id)
+		return c.JSON(fiber.Map{"status": "stopped"})
 	})
 }

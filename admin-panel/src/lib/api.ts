@@ -51,6 +51,8 @@ export interface Reason {
 export interface Container {
   Name: string;
   Id: string;
+  FullId: string;
+  State: string;
 }
 
 export interface Config {
@@ -314,10 +316,20 @@ export const api = {
     if (!res.ok) throw new Error('Failed to remove global blacklist IP');
   },
 
-  async getContainers(): Promise<Container[]> {
-    const res = await fetch(`${API_BASE}/api/docker/containers`);
+  async getContainers(all: boolean): Promise<Container[]> {
+    const res = await fetch(`${API_BASE}/api/docker/containers?all=${all}`);
     if (!res.ok) throw new Error('Failed to fetch containers');
     const data = await res.json();
     return data.containers;
+  },
+
+  async startContainer(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/docker/containers/start/${id}`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to start container');
+  },
+
+  async stopContainer(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/docker/containers/stop/${id}`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to stop container');
   },
 };

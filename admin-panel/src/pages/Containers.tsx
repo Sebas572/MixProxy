@@ -1,22 +1,49 @@
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Play, Square } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { Container, api } from "@/lib/api";
 
-const columns = [
-  { key: "Name", header: "Name" },
-  { key: "Id", header: "ID", className: "font-mono text-primary" },
-];
-
 export default function Containers() {
+  const columns = [
+    { key: "Name", header: "Name" },
+    { key: "Id", header: "ID", className: "font-mono text-primary" },
+    { key: "State", header: "State" },
+    { key: "Actions", header: "Actions", render: (container: Container) => (
+      <div className="flex gap-2">
+          {container.State === "running" ? (
+              <Button size="sm" variant="outline" onClick={async () => {
+                  try {
+                      await api.stopContainer(container.Id);
+                      await fetchData();
+                  } catch (error) {
+                      console.error('Error stopping container:', error);
+                  }
+              }}>
+                  <Square className="h-4 w-4" />
+              </Button>
+          ) : (
+              <Button size="sm" variant="outline" onClick={async () => {
+                  try {
+                      await api.startContainer(container.Id);
+                      await fetchData();
+                  } catch (error) {
+                      console.error('Error starting container:', error);
+                  }
+              }}>
+                  <Play className="h-4 w-4" />
+              </Button>
+          )}
+      </div>
+    ) },
+  ];
   const [containers, setContainers] = useState<Container[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
   const fetchData = async () => {
     try {
-      const data = await api.getContainers();
+      const data = await api.getContainers(true);
       setContainers(data);
       setLoading(false);
     } catch (error) {
