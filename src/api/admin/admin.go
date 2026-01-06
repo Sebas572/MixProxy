@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"mixproxy/src/docker"
 	"mixproxy/src/logger"
 	"mixproxy/src/proxy/config"
 	"mixproxy/src/redis"
@@ -569,4 +570,9 @@ func HandleAdminAPI() {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
 
+	api.Get("/docker/containers", func(c *fiber.Ctx) error {
+		containers := docker.GetContainers()
+
+		return c.JSON(fiber.Map{"containers": containers})
+	})
 }
