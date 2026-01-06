@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import Index from "./pages/Index";
 import Requests from "./pages/Requests";
+import Containers from "./pages/Containers";
 import IPs from "./pages/IPs";
 import Configuration from "./pages/Configuration";
 import Whitelist from "./pages/Whitelist";
@@ -24,6 +25,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/requests" element={<Requests />} />
+            <Route path="/containers" element={<Containers />} />
             <Route path="/ips" element={<IPs />} />
             <Route path="/configuration" element={<Configuration />} />
             <Route path="/whitelist" element={<Whitelist />} />

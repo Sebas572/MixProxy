@@ -48,6 +48,11 @@ export interface Reason {
   Date: string;
 }
 
+export interface Container {
+  Name: string;
+  Id: string;
+}
+
 export interface Config {
   hostname: string;
   subdomain_admin_panel: string;
@@ -307,5 +312,12 @@ export const api = {
   async removeBlacklistIPGlobal(ip: string): Promise<void> {
     const res = await fetch(`${API_BASE}/api/blacklist/global/ip/${ip}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to remove global blacklist IP');
+  },
+
+  async getContainers(): Promise<Container[]> {
+    const res = await fetch(`${API_BASE}/api/docker/containers`);
+    if (!res.ok) throw new Error('Failed to fetch containers');
+    const data = await res.json();
+    return data.containers;
   },
 };

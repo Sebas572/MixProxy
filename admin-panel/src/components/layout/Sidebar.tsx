@@ -1,10 +1,11 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Activity, Globe, Settings, Shield, ShieldCheck, Ban } from "lucide-react";
+import { LayoutDashboard, Activity, Globe, Settings, Shield, ShieldCheck, Ban, Box } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/requests", icon: Activity, label: "Requests" },
+  { to: "/containers", icon: Box, label: "Containers" },
   { to: "/ips", icon: Globe, label: "IPs" },
   { to: "/whitelist", icon: ShieldCheck, label: "Whitelist" },
   { to: "/blacklist", icon: Ban, label: "Blacklist" },
