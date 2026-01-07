@@ -588,4 +588,16 @@ func HandleAdminAPI() {
 		docker.StopContainer(id)
 		return c.JSON(fiber.Map{"status": "stopped"})
 	})
+
+	api.Post("/docker/containers/create", func(c *fiber.Ctx) error {
+		var body struct {
+			Image string `json:"image"`
+			Name  string `json:"name"`
+		}
+		if err := c.BodyParser(&body); err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "Invalid JSON"})
+		}
+		docker.CreateContainer(body.Image, body.Name)
+		return c.JSON(fiber.Map{"status": "created"})
+	})
 }

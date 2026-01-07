@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 )
 
@@ -73,4 +74,21 @@ func StopContainer(id string) {
 
 func StartContainer(id string) {
 	cli.ContainerStart(ctx, id, container.StartOptions{})
+}
+
+func CreateContainer(image string, name string) {
+	config := &container.Config{
+		Image: image,
+	}
+	hostConfig := &container.HostConfig{}
+	networkingConfig := &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{
+			networkName: {},
+		},
+	}
+	resp, err := cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, name)
+	if err != nil {
+		log.Fatal(err)
+	}
+	cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
 }

@@ -222,7 +222,6 @@ export const api = {
     if (!res.ok) throw new Error('Failed to remove blacklist IP');
   },
 
-  // Root Whitelist
   async getWhitelistEnabledRoot(): Promise<boolean> {
     const res = await fetch(`${API_BASE}/api/whitelist/enabled/`);
     if (!res.ok) throw new Error('Failed to get root whitelist enabled');
@@ -259,7 +258,6 @@ export const api = {
     if (!res.ok) throw new Error('Failed to remove root whitelist IP');
   },
 
-  // Root Blacklist
   async getBlacklistEnabledRoot(): Promise<boolean> {
     const res = await fetch(`${API_BASE}/api/blacklist/enabled/`);
     if (!res.ok) throw new Error('Failed to get root blacklist enabled');
@@ -331,5 +329,14 @@ export const api = {
   async stopContainer(id: string): Promise<void> {
     const res = await fetch(`${API_BASE}/api/docker/containers/stop/${id}`, { method: 'POST' });
     if (!res.ok) throw new Error('Failed to stop container');
+  },
+
+  async createContainer(image: string, name: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/docker/containers/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image, name }),
+    });
+    if (!res.ok) throw new Error('Failed to create container');
   },
 };

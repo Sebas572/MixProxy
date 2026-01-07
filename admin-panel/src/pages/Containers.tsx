@@ -1,6 +1,9 @@
 import { RefreshCw, Play, Square } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import { Container, api } from "@/lib/api";
 
@@ -40,6 +43,9 @@ export default function Containers() {
   const [containers, setContainers] = useState<Container[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [image, setImage] = useState("");
+  const [name, setName] = useState("");
 
   const fetchData = async () => {
     try {
@@ -70,19 +76,27 @@ export default function Containers() {
             View all running containers in the network
           </p>
         </div>
-        <Button
-          onClick={async () => {
-            setUpdating(true);
-            await fetchData();
-            setUpdating(false);
-          }}
-          disabled={updating}
-          variant="outline"
-          size="sm"
-        >
-          <RefreshCw className={`mr-2 h-4 w-4 ${updating ? 'animate-spin' : ''}`} />
-          {updating ? "Updating..." : "Refresh"}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setCreateDialogOpen(true)}
+            variant="default"
+          >
+            Create Container
+          </Button>
+          <Button
+            onClick={async () => {
+              setUpdating(true);
+              await fetchData();
+              setUpdating(false);
+            }}
+            disabled={updating}
+            variant="outline"
+            size="sm"
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${updating ? 'animate-spin' : ''}`} />
+            {updating ? "Updating..." : "Refresh"}
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -95,6 +109,37 @@ export default function Containers() {
 
       {/* Table */}
       <DataTable data={containers as any[]} columns={columns} />
+
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Container</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="image">Image</Label>
+              <Input id="image" value={image} onChange={(e) => setImage(e.target.value)} placeholder="e.g. nginx:latest" />
+            </div>
+            <div>
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. my-container" />
+            </div>
+            <Button onClick={async () => {
+              try {
+                await api.createContainer(image, name);
+                setCreateDialogOpen(false);
+                setImage("");
+                setName("");
+                await fetchData();
+              } catch (error) {
+                console.error('Error creating container:', error);
+              }
+            }}>
+              Create
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
