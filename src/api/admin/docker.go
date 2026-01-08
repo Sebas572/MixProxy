@@ -99,9 +99,9 @@ func SetupDockerRoutes(api fiber.Router) {
 			return c.Status(400).JSON(fiber.Map{"error": "Invalid type"})
 		}
 		envs := []string{}
-		for _, envKey := range selectedTemplate.Environment {
-			if val, ok := body.Environments[envKey]; ok && val != "" {
-				envs = append(envs, envKey+"="+val)
+		for key, val := range body.Environments {
+			if val != "" {
+				envs = append(envs, key+"="+val)
 			}
 		}
 		docker.CreateContainerFromTemplate(selectedTemplate.Image, body.Name, selectedTemplate.Ports, envs)

@@ -54,6 +54,22 @@ export default function Containers() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [containerName, setContainerName] = useState("");
   const [envValues, setEnvValues] = useState<Record<string, string>>({});
+  const [customEnvs, setCustomEnvs] = useState<Array<{key: string, value: string}>>([]);
+
+  const addCustomEnv = () => {
+    setCustomEnvs([...customEnvs, { key: "", value: "" }]);
+  };
+
+  const removeCustomEnv = (index: number) => {
+    setCustomEnvs(customEnvs.filter((_, i) => i !== index));
+  };
+
+  const updateCustomEnv = (index: number, field: 'key' | 'value', value: string) => {
+    const updated = customEnvs.map((env, i) =>
+      i === index ? { ...env, [field]: value } : env
+    );
+    setCustomEnvs(updated);
+  };
 
   const fetchData = async () => {
     try {
@@ -175,7 +191,7 @@ export default function Containers() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="type">Type</Label>
-              <Select value={selectedType} onValueChange={(value: "databases" | "repositorys") => { setSelectedType(value); setSelectedIndex(0); setEnvValues({}); }}>
+              <Select value={selectedType} onValueChange={(value: "databases" | "repositorys") => { setSelectedType(value); setSelectedIndex(0); setEnvValues({}); setCustomEnvs([]); }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -187,7 +203,7 @@ export default function Containers() {
             </div>
             <div>
               <Label htmlFor="template">Template</Label>
-              <Select value={selectedIndex.toString()} onValueChange={(value) => { setSelectedIndex(parseInt(value)); setEnvValues({}); }}>
+              <Select value={selectedIndex.toString()} onValueChange={(value) => { setSelectedIndex(parseInt(value)); setEnvValues({}); setCustomEnvs([]); }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a template" />
                 </SelectTrigger>
@@ -214,12 +230,30 @@ export default function Containers() {
                 <Input id={envKey} value={envValues[envKey] || ""} onChange={(e) => setEnvValues({...envValues, [envKey]: e.target.value})} />
               </div>
             ))}
+            <div>
+              <Label>Custom Environments</Label>
+              {customEnvs.map((env, idx) => (
+                <div key={idx} className="flex gap-2 mb-2">
+                  <Input placeholder="Key" value={env.key} onChange={(e) => updateCustomEnv(idx, 'key', e.target.value)} />
+                  <Input placeholder="Value" value={env.value} onChange={(e) => updateCustomEnv(idx, 'value', e.target.value)} />
+                  <Button size="sm" variant="outline" onClick={() => removeCustomEnv(idx)}>Remove</Button>
+                </div>
+              ))}
+              <Button size="sm" variant="outline" onClick={addCustomEnv}>Add Custom Environment</Button>
+            </div>
             <Button onClick={async () => {
               try {
-                await api.createContainerFromTemplate(selectedType, selectedIndex, containerName, envValues);
+                const allEnvs = { ...envValues };
+                customEnvs.forEach(env => {
+                  if (env.key.trim()) {
+                    allEnvs[env.key.trim()] = env.value;
+                  }
+                });
+                await api.createContainerFromTemplate(selectedType, selectedIndex, containerName, allEnvs);
                 setTemplateDialogOpen(false);
                 setContainerName("");
                 setEnvValues({});
+                setCustomEnvs([]);
                 await fetchData();
               } catch (error) {
                 console.error('Error creating container from template:', error);
