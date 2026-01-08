@@ -1,0 +1,23 @@
+{
+    "databases": [
+        {
+            "image": "mariadb",
+            "ports": 3306,
+            "environment": ["MARIADB_USER", "MARIADB_ROOT_PASSWORD"],
+            "url": "https://hub.docker.com/_/mariadb"
+        },
+        {
+            "image": "redis",
+            "ports": 6379,
+            "environment": ["REDIS_PASSWORD"],
+            "url": "https://hub.docker.com/_/redis"
+        },
+        {
+            "image": "postgres",
+            "ports": 5432,
+            "environment": ["POSTGRES_PASSWORD"],
+            "url": "https://hub.docker.com/_/postgres"
+        }
+    ],
+    "repositorys": []
+}

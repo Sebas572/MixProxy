@@ -92,3 +92,26 @@ func CreateContainer(image string, name string) {
 	}
 	cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
 }
+
+func CreateContainerFromTemplate(image string, name string, port int, envs []string) {
+	config := &container.Config{
+		Image: image,
+		Env:   envs,
+	}
+	hostConfig := &container.HostConfig{}
+	// containerPort := strconv.Itoa(port) + "/tcp"
+	// PortBindings: nat.PortMap{
+	// 	nat.Port(containerPort): []nat.PortBinding{{HostPort: strconv.Itoa(port)}},
+	// },
+
+	networkingConfig := &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{
+			networkName: {},
+		},
+	}
+	resp, err := cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, name)
+	if err != nil {
+		log.Fatal(err)
+	}
+	cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
+}

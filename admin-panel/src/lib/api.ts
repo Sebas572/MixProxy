@@ -49,10 +49,22 @@ export interface Reason {
 }
 
 export interface Container {
-  Name: string;
-  Id: string;
-  FullId: string;
-  State: string;
+	Name: string;
+	Id: string;
+	FullId: string;
+	State: string;
+}
+
+export interface Template {
+	image: string;
+	ports: number;
+	environment: string[];
+	url: string;
+}
+
+export interface Templates {
+	databases: Template[];
+	repositorys: Template[];
 }
 
 export interface Config {
@@ -338,5 +350,20 @@ export const api = {
       body: JSON.stringify({ image, name }),
     });
     if (!res.ok) throw new Error('Failed to create container');
+  },
+
+  async getTemplates(): Promise<Templates> {
+    const res = await fetch(`${API_BASE}/api/docker/templates`);
+    if (!res.ok) throw new Error('Failed to fetch templates');
+    return res.json();
+  },
+
+  async createContainerFromTemplate(type: string, index: number, name: string, environments: Record<string, string>): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/docker/containers/create-from-template`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, index, name, environments }),
+    });
+    if (!res.ok) throw new Error('Failed to create container from template');
   },
 };
